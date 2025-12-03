@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Juice Shop Kiosk</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #F87171; /* Red-400 for juice theme */
+            --secondary-color: #6EE7B7; /* Emerald-300 */
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f7;
+        }
+        .juice-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+        }
+        .juice-card:hover:not(.opacity-50) {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .add-btn {
+            background-color: var(--primary-color);
+            transition: all 0.3s ease-in-out;
+        }
+        .add-btn:hover:not(:disabled) {
+            background-color: #EF4444; /* Red-500 */
+            transform: scale(1.01);
+        }
+        .stepper-ui {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            overflow: hidden;
+            opacity: 0;
+            max-height: 0;
+            transition: opacity 0.3s ease, max-height 0.3s ease;
+        }
+        .stepper-ui.active {
+            opacity: 1;
+            max-height: 40px;
+            margin-top: 0.5rem;
+        }
+        /* Mobile Cart Panel Styling */
+        .cart-panel-mobile {
+            transition: transform 0.3s ease-out;
+            z-index: 50;
+        }
+        /* Scrollbar styles for cleaner look */
+        .scrollable-content::-webkit-scrollbar {
+            width: 6px;
+        }
+        .scrollable-content::-webkit-scrollbar-thumb {
+            background-color: #D1D5DB;
+            border-radius: 3px;
+        }
+        .scrollable-content::-webkit-scrollbar-track {
+            background-color: #F3F4F6;
+        }
+        .modal-bg {
+            background-color: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 60;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <!-- Main Application Container -->
+    <div id="app" class="relative">
+
+        <!-- Header -->
+        <header class="bg-white shadow-md sticky top-0 z-40">
+            <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+                <h1 class="text-3xl font-extrabold text-gray-900 flex items-center">
+                    <span class="text-4xl mr-2" style="color: var(--primary-color);">🍹</span>
+                    Juice Hub
+                </h1>
+                <!-- Mobile Cart Icon -->
+                <div id="cart-icon-container" class="relative cursor-pointer md:hidden" onclick="toggleCartPanel()">
+                    <svg class="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                    <span id="mobile-cart-badge" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center opacity-0 transition-opacity">0</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Dynamic Content Area & Desktop Cart (Grid Layout for No Overlap) -->
+        <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-8 py-6 px-4 sm:px-6 lg:px-8">
+            
+            <!-- 1. Main Content Area (8/12 or 9/12 columns on desktop) -->
+            <div id="content-area-wrapper" class="md:col-span-8 lg:col-span-9">
+                <div id="content-area">
+                    <!-- Content will be rendered here by JavaScript -->
+                </div>
+            </div>
+
+            <!-- 2. Desktop Cart Panel (4/12 or 3/12 columns on desktop) -->
+            <div id="cart-panel-desktop-wrapper" class="hidden md:block md:col-span-4 lg:col-span-3">
+                <!-- Sticky positioning for cart to stay visible while content scrolls -->
+                <div id="cart-panel-desktop" class="sticky top-6 bg-white rounded-xl shadow-lg h-[calc(100vh-6rem)] flex flex-col overflow-hidden">
+                    <!-- Cart Content will be injected here -->
+                </div>
+            </div>
+
+        </div> <!-- End of Grid Wrapper -->
+
+        <!-- Mobile Cart Panel (Fixed, Slide-in) -->
+        <div id="cart-panel-mobile" class="cart-panel-mobile fixed inset-y-0 right-0 w-full max-w-sm bg-white shadow-2xl flex flex-col transform translate-x-full transition-transform md:hidden z-50">
+            <!-- Cart Content will be injected here -->
+        </div>
+
+
+        <!-- Phone Number Modal / Initial Screen -->
+        <div id="phone-modal" class="fixed inset-0 modal-bg flex items-center justify-center p-4 transition-opacity duration-300">
+            <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md transform transition-transform duration-300 scale-100">
+                <h2 class="text-3xl font-extrabold text-gray-900 mb-4" style="color: var(--primary-color);">Welcome to Juice Hub!</h2>
+                <p class="text-gray-600 mb-6">Please enter your mobile number to receive your digital bill via WhatsApp.</p>
+                <input type="tel" id="mobile-input" class="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-red-400 focus:ring-red-400 transition-colors text-lg" placeholder="e.g., 9876543210" maxlength="10">
+                <button id="start-order-btn" class="w-full mt-6 p-3 text-lg font-bold text-white rounded-lg shadow-lg add-btn" disabled>
+                    Start Ordering
+                </button>
+                <p id="phone-error" class="text-red-500 text-sm mt-3 hidden">Please enter a valid 10-digit mobile number.</p>
+            </div>
+        </div>
+
+        <!-- Stock Limit / Generic Message Modal -->
+        <div id="message-modal" class="fixed inset-0 modal-bg hidden items-center justify-center p-4 transition-opacity duration-300 opacity-0">
+            <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-sm transform scale-95 transition-transform duration-300">
+                <h3 id="message-modal-title" class="text-xl font-bold mb-3 text-red-500"></h3>
+                <p id="message-modal-body" class="text-gray-600 mb-6"></p>
+                <button onclick="closeMessageModal()" class="w-full p-2 font-semibold text-white rounded-lg bg-gray-500 hover:bg-gray-600 transition-colors">
+                    Got It
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- CONSTANTS AND INITIAL STATE ---
+
+        const APP_TAX_RATE = 0.05; // 5% tax
+        const INITIAL_STOCK = 10;
+        const JUICES = [
+            { id: 1, name: 'Mango Juice', price: 60, icon: '🥭' },
+            { id: 2, name: 'Watermelon', price: 50, icon: '🍉' },
+            { id: 3, name: 'Orange Juice', price: 55, icon: '🍊' },
+            { id: 4, name: 'Pineapple', price: 65, icon: '🍍' },
+            { id: 5, name: 'Mix Fruit', price: 75, icon: '🍎🍌' },
+            { id: 6, name: 'Strawberry', price: 80, icon: '🍓' },
+            { id: 7, name: 'Apple Delight', price: 70, icon: '🍏' },
+            { id: 8, name: 'Grapes', price: 60, icon: '🍇' },
+            { id: 9, name: 'Banana Shake', price: 85, icon: '🍌' },
+            { id: 10, name: 'Chikoo Milkshake', price: 90, icon: '🧋' },
+        ];
+
+        let state = {
+            view: 'phone_entry', // phone_entry, ordering, checkout, bill
+            mobileNumber: '',
+            cart: [], // { id: 1, name: 'Mango Juice', price: 60, qty: 1 }
+            stock: {}, // { 1: 10, 2: 10, ... }
+            orderType: 'Dine-in',
+            paymentMethod: 'UPI Payment',
+            subtotal: 0,
+            grandTotal: 0,
+            isCartOpen: false,
+        };
+
+        // --- DOM ELEMENTS ---
+        const contentArea = document.getElementById('content-area');
+        const phoneModal = document.getElementById('phone-modal');
+        const mobileInput = document.getElementById('mobile-input');
+        const startOrderBtn = document.getElementById('start-order-btn');
+        const phoneError = document.getElementById('phone-error');
+        // Updated to use both desktop and mobile cart elements
+        const cartPanelDesktop = document.getElementById('cart-panel-desktop');
+        const cartPanelMobile = document.getElementById('cart-panel-mobile');
+        const mobileCartBadge = document.getElementById('mobile-cart-badge');
+        const messageModal = document.getElementById('message-modal');
+        const messageModalTitle = document.getElementById('message-modal-title');
+        const messageModalBody = document.getElementById('message-modal-body');
+
+        // --- STOCK MANAGEMENT (SIMULATED BACKEND) ---
+
+        /** Initializes or loads stock from local storage. */
+        function initializeStock() {
+            const storedStock = localStorage.getItem('juiceShopStock');
+            if (storedStock) {
+                state.stock = JSON.parse(storedStock);
+            } else {
+                JUICES.forEach(juice => {
+                    state.stock[juice.id] = INITIAL_STOCK;
+                });
+                saveStock();
+            }
+        }
+
+        /** Saves current stock state to local storage. */
+        function saveStock() {
+            localStorage.setItem('juiceShopStock', JSON.stringify(state.stock));
+        }
+
+        /** Reduces stock for all items in the current cart. */
+        function finalizeOrderStockReduction() {
+            state.cart.forEach(item => {
+                const currentStock = state.stock[item.id] || 0;
+                state.stock[item.id] = Math.max(0, currentStock - item.qty);
+            });
+            saveStock();
+        }
+
+        // --- CART LOGIC ---
+
+        /** Updates subtotal and grand total based on cart contents. */
+        function updateTotals() {
+            state.subtotal = state.cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            state.grandTotal = state.subtotal * (1 + APP_TAX_RATE);
+            renderCartPanel();
+        }
+
+        /** Adds or increases quantity of a product in the cart. */
+        function addToCart(productId) {
+            const product = JUICES.find(j => j.id === productId);
+            if (!product) return;
+
+            const cartItem = state.cart.find(item => item.id === productId);
+            const currentStock = state.stock[productId] || 0;
+            const newQty = (cartItem ? cartItem.qty : 0) + 1;
+
+            if (newQty > currentStock) {
+                showMessageModal('Stock Limited', `Product stock limited. You cannot add more than ${currentStock} available quantity.`);
+                return;
+            }
+
+            if (cartItem) {
+                // Prevent duplication: update quantity in same row
+                cartItem.qty = newQty;
+            } else {
+                state.cart.push({
+                    id: product.id,
+                    name: product.name,
+                    price: product.price,
+                    qty: 1
+                });
+            }
+
+            updateTotals();
+            renderProductList(); // Update UI to reflect steppers
+            
+            // Show mobile cart immediately upon adding the first item
+            if (state.cart.length === 1 && window.innerWidth < 768) {
+                toggleCartPanel(true);
+            }
+        }
+
+        /** Updates quantity of a product in the cart. */
+        function updateCartQuantity(productId, delta) {
+            const cartItem = state.cart.find(item => item.id === productId);
+            if (!cartItem) return;
+
+            const currentStock = state.stock[productId] || 0;
+            const newQty = cartItem.qty + delta;
+
+            if (newQty > currentStock) {
+                showMessageModal('Stock Limited', `Product stock limited. You cannot add more than ${currentStock} available quantity.`);
+                return;
+            }
+
+            if (newQty <= 0) {
+                removeFromCart(productId);
+            } else {
+                cartItem.qty = newQty;
+                updateTotals();
+            }
+
+            renderProductList(); // Update UI to reflect changes
+        }
+
+        /** Removes a product entirely from the cart. */
+        function removeFromCart(productId) {
+            state.cart = state.cart.filter(item => item.id !== productId);
+            updateTotals();
+            renderProductList(); // Update UI to reflect changes (back to 'Add' button)
+            
+            // Hide mobile cart if it becomes empty
+            if (state.cart.length === 0 && window.innerWidth < 768) {
+                toggleCartPanel(false);
+            }
+        }
+
+
+        // --- UI RENDERING FUNCTIONS ---
+
+        /** Renders the main product list view. */
+        function renderProductList() {
+            if (state.view !== 'ordering') return;
+
+            const cartItemIds = state.cart.map(item => item.id);
+            const productListHTML = JUICES.map(juice => {
+                const inCart = cartItemIds.includes(juice.id);
+                const item = state.cart.find(i => i.id === juice.id);
+                const currentStock = state.stock[juice.id] || 0;
+                const isOutOfStock = currentStock === 0;
+
+                return `
+                    <div class="juice-card bg-white p-6 rounded-xl shadow-lg flex flex-col justify-between ${isOutOfStock ? 'opacity-50 grayscale' : ''}">
+                        <div>
+                            <div class="text-4xl mb-3">${juice.icon}</div>
+                            <h3 class="text-xl font-bold text-gray-900">${juice.name}</h3>
+                            <p class="text-2xl font-extrabold text-red-500 mt-1">₹${juice.price}</p>
+                        </div>
+                        
+                        <div id="controls-${juice.id}" class="mt-4">
+                            ${inCart ? `
+                                <div class="stepper-ui active justify-center p-1 border-2 border-red-400 rounded-lg">
+                                    <button onclick="updateCartQuantity(${juice.id}, -1)" class="bg-red-400 text-white rounded-md p-1 font-bold w-8 h-8 flex items-center justify-center transition-colors hover:bg-red-500">
+                                        -
+                                    </button>
+                                    <span class="text-lg font-bold text-gray-800 mx-4">${item.qty}</span>
+                                    <button onclick="updateCartQuantity(${juice.id}, 1)" class="bg-red-400 text-white rounded-md p-1 font-bold w-8 h-8 flex items-center justify-center transition-colors hover:bg-red-500">
+                                        +
+                                    </button>
+                                </div>
+                            ` : `
+                                <button onclick="addToCart(${juice.id})" 
+                                    class="add-btn w-full p-2 text-lg font-bold text-white rounded-lg shadow-md transition-all ease-in-out 
+                                    ${isOutOfStock ? 'bg-gray-400 cursor-not-allowed' : ''}" 
+                                    ${isOutOfStock ? 'disabled' : ''}>
+                                    ${isOutOfStock ? 'Out of Stock' : 'Add'}
+                                </button>
+                            `}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            contentArea.innerHTML = `
+                <div class="mb-6 text-center">
+                    <h2 class="text-3xl font-extrabold text-gray-900">Select Your Juices</h2>
+                    <p class="text-gray-500">Freshly made just for you.</p>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    ${productListHTML}
+                </div>
+            `;
+            renderCartPanel();
+        }
+
+        /** Renders the cart panel content for both desktop and mobile panels. */
+        function renderCartPanel() {
+            const taxAmount = state.subtotal * APP_TAX_RATE;
+
+            const cartItemsHTML = state.cart.length > 0
+                ? state.cart.map(item => `
+                    <div id="cart-item-${item.id}" class="flex items-center justify-between py-3 border-b border-gray-100">
+                        <div class="flex flex-col flex-grow">
+                            <span class="text-gray-800 font-semibold">${item.name}</span>
+                            <span class="text-sm text-gray-500">@ ₹${item.price}</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <button onclick="updateCartQuantity(${item.id}, -1)" class="text-red-400 hover:text-red-600 transition-colors font-bold text-xl">-</button>
+                            <span class="font-bold text-gray-700 w-6 text-center">${item.qty}</span>
+                            <button onclick="updateCartQuantity(${item.id}, 1)" class="text-red-400 hover:text-red-600 transition-colors font-bold text-xl">+</button>
+                        </div>
+                        <span class="font-bold text-gray-900 w-16 text-right">₹${(item.price * item.qty).toFixed(0)}</span>
+                        <button onclick="removeFromCart(${item.id})" class="ml-3 text-gray-300 hover:text-red-500 transition-colors">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
+                `).join('')
+                : `
+                    <div class="text-center py-10 text-gray-500">
+                        <span class="text-4xl block mb-2">🛒</span>
+                        Your cart is empty.
+                    </div>
+                `;
+            
+            const cartContentHTML = (isMobile) => `
+                <div class="p-6 pb-2 border-b-2 border-red-400 flex justify-between items-center">
+                    <h2 class="text-2xl font-extrabold text-gray-900">Your Order</h2>
+                    ${isMobile ? `<button class="md:hidden text-gray-500 hover:text-gray-800" onclick="toggleCartPanel(false)">
+                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>` : ''}
+                </div>
+
+                <!-- Cart Items List -->
+                <div class="flex-grow p-6 overflow-y-auto scrollable-content">
+                    ${cartItemsHTML}
+                </div>
+
+                <!-- Cart Summary & Checkout Button -->
+                <div class="p-6 bg-gray-50 border-t border-gray-200">
+                    <div class="space-y-1 text-sm">
+                        <div class="flex justify-between font-medium text-gray-700">
+                            <span>Subtotal:</span>
+                            <span>₹${state.subtotal.toFixed(0)}</span>
+                        </div>
+                        <div class="flex justify-between text-gray-500">
+                            <span>Tax (5%):</span>
+                            <span>+ ₹${taxAmount.toFixed(0)}</span>
+                        </div>
+                        <div class="flex justify-between text-xl font-extrabold pt-2 text-gray-900">
+                            <span>Grand Total:</span>
+                            <span class="text-red-500">₹${state.grandTotal.toFixed(0)}</span>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">Mobile: ${state.mobileNumber}</p>
+                    </div>
+                    <button onclick="handleCheckoutClick()" 
+                            class="w-full mt-4 p-3 text-lg font-bold text-white rounded-lg shadow-xl add-btn disabled:opacity-50"
+                            ${state.cart.length === 0 ? 'disabled' : ''}>
+                        Checkout (${state.cart.length} items)
+                    </button>
+                </div>
+            `;
+            
+            // Render to both panels
+            if(cartPanelDesktop) cartPanelDesktop.innerHTML = cartContentHTML(false);
+            if(cartPanelMobile) cartPanelMobile.innerHTML = cartContentHTML(true);
+
+            // Update mobile badge
+            const totalItems = state.cart.reduce((sum, item) => sum + item.qty, 0);
+            mobileCartBadge.textContent = totalItems;
+            mobileCartBadge.classList.toggle('opacity-0', totalItems === 0);
+        }
+
+        /** Renders the checkout page. */
+        function renderCheckoutPage() {
+            if (state.view !== 'checkout') return;
+
+            const summaryHTML = state.cart.map(item => `
+                <div class="flex justify-between py-2 border-b border-gray-100">
+                    <span class="text-gray-700">${item.name} x ${item.qty}</span>
+                    <span class="font-semibold text-gray-900">₹${(item.price * item.qty).toFixed(0)}</span>
+                </div>
+            `).join('');
+
+            const taxAmount = state.subtotal * APP_TAX_RATE;
+
+            contentArea.innerHTML = `
+                <div class="max-w-xl mx-auto p-6 bg-white rounded-xl shadow-2xl">
+                    <h2 class="text-3xl font-extrabold text-gray-900 mb-6 border-b pb-3" style="color: var(--primary-color);">
+                        <span onclick="setView('ordering')" class="cursor-pointer mr-2 text-gray-400 hover:text-gray-600 transition-colors">&leftarrow;</span>
+                        Final Checkout
+                    </h2>
+
+                    <!-- Order Summary -->
+                    <div class="mb-6">
+                        <h3 class="text-xl font-bold mb-3 text-gray-800">Order Summary</h3>
+                        <div class="p-4 bg-gray-50 rounded-lg">
+                            ${summaryHTML}
+                            <div class="flex justify-between text-sm pt-4 border-t mt-4">
+                                <span class="font-medium text-gray-700">Subtotal:</span>
+                                <span>₹${state.subtotal.toFixed(0)}</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="font-medium text-gray-700">Tax (5%):</span>
+                                <span>+ ₹${taxAmount.toFixed(0)}</span>
+                            </div>
+                            <div class="flex justify-between text-2xl font-extrabold pt-2 text-gray-900">
+                                <span>Grand Total:</span>
+                                <span class="text-red-500">₹${state.grandTotal.toFixed(0)}</span>
+                            </div>
+                            <p class="text-sm text-gray-500 mt-2">Bill will be sent to: <strong>+91 ${state.mobileNumber}</strong></p>
+                        </div>
+                    </div>
+
+                    <!-- Order Type (Dine-in / Parcel) -->
+                    <div class="mb-6">
+                        <h3 class="text-xl font-bold mb-3 text-gray-800">Order Type</h3>
+                        <div class="flex space-x-4">
+                            <button onclick="state.orderType = 'Dine-in'; renderCheckoutPage();"
+                                class="flex-1 p-4 rounded-lg font-semibold transition-all shadow-md
+                                ${state.orderType === 'Dine-in' ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}">
+                                Dine-in 🍽️
+                            </button>
+                            <button onclick="state.orderType = 'Parcel'; renderCheckoutPage();"
+                                class="flex-1 p-4 rounded-lg font-semibold transition-all shadow-md
+                                ${state.orderType === 'Parcel' ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}">
+                                Parcel (Takeaway) 📦
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Payment Method -->
+                    <div class="mb-8">
+                        <h3 class="text-xl font-bold mb-3 text-gray-800">Payment Method</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center p-4 rounded-lg border-2 cursor-pointer transition-colors ${state.paymentMethod === 'UPI Payment' ? 'border-red-500 bg-red-50' : 'border-gray-300 hover:border-red-400'}"
+                                onclick="state.paymentMethod = 'UPI Payment'; renderCheckoutPage();">
+                                <input type="radio" name="payment" id="upi" value="UPI Payment" class="h-5 w-5 text-red-600 focus:ring-red-500" ${state.paymentMethod === 'UPI Payment' ? 'checked' : ''}>
+                                <label for="upi" class="ml-3 text-lg font-semibold text-gray-900">UPI Payment (QR/Redirect)</label>
+                            </div>
+                            <div class="flex items-center p-4 rounded-lg border-2 cursor-pointer transition-colors ${state.paymentMethod === 'Cash' ? 'border-red-500 bg-red-50' : 'border-gray-300 hover:border-red-400'}"
+                                onclick="state.paymentMethod = 'Cash'; renderCheckoutPage();">
+                                <input type="radio" name="payment" id="cash" value="Cash" class="h-5 w-5 text-red-600 focus:ring-red-500" ${state.paymentMethod === 'Cash' ? 'checked' : ''}>
+                                <label for="cash" class="ml-3 text-lg font-semibold text-gray-900">Cash on Delivery</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Complete Payment Button -->
+                    <button onclick="completePayment()" class="w-full p-4 text-xl font-extrabold text-white rounded-lg shadow-xl" style="background-color: var(--primary-color);">
+                        Complete Payment: ₹${state.grandTotal.toFixed(0)}
+                    </button>
+                </div>
+            `;
+            // Ensure mobile cart is closed on checkout
+            toggleCartPanel(false);
+        }
+
+        /** Renders the final bill confirmation and message content. */
+        function renderBillConfirmation() {
+            if (state.view !== 'bill') return;
+
+            const billMessage = generateWhatsAppBill();
+            const encodedMessage = encodeURIComponent(billMessage);
+            const whatsappLink = `https://wa.me/91${state.mobileNumber}?text=${encodedMessage}`;
+
+            contentArea.innerHTML = `
+                <div class="max-w-xl mx-auto p-8 bg-white rounded-xl shadow-2xl">
+                    <div class="text-center">
+                        <div class="text-6xl mb-4 text-green-500">🎉</div>
+                        <h2 class="text-4xl font-extrabold text-gray-900 mb-3">Order Placed Successfully!</h2>
+                        <p class="text-gray-600 mb-6">Your order has been confirmed. The bill will be sent to <strong>+91 ${state.mobileNumber}</strong> via WhatsApp shortly.</p>
+                    </div>
+
+                    <div class="p-5 bg-gray-50 rounded-lg text-left mb-6 whitespace-pre-wrap text-sm border border-gray-200">
+                        <h3 class="font-bold text-gray-800 mb-2">WhatsApp Message Preview:</h3>
+                        ${billMessage}
+                    </div>
+
+                    <a href="${whatsappLink}" target="_blank" class="inline-flex items-center justify-center w-full p-3 text-lg font-bold text-white rounded-lg shadow-lg bg-green-500 hover:bg-green-600 transition-colors">
+                        <svg class="w-6 h-6 mr-2" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12.039 2c-5.523 0-10 4.477-10 10s4.477 10 10 10 10-4.477 10-10-4.477-10-10-10zm.557 16.923c-1.396 0-2.28-.521-3.921-2.023-.195-.176-.461-.264-.727-.264s-.532.088-.727.264c-.195.176-.195.461 0 .637 1.696 1.55 2.768 2.378 4.706 2.378 1.938 0 3.01-.828 4.706-2.378.195-.176.195-.461 0-.637-.195-.176-.461-.264-.727-.264s-.532.088-.727.264c-1.641 1.502-2.525 2.023-3.921 2.023zm-1.077-3.961c-.532 0-1.064-.195-1.464-.585-.818-.818-.818-2.146 0-2.964.818-.818 2.146-.818 2.964 0 .4.4.617.932.617 1.482 0 .55-.217 1.082-.617 1.482-.4.409-.932.617-1.482.617zm4.336 0c-.532 0-1.064-.195-1.464-.585-.818-.818-.818-2.146 0-2.964.818-.818 2.146-.818 2.964 0 .4.4.617.932.617 1.482 0 .55-.217 1.082-.617 1.482-.4.409-.932.617-1.482.617z"/></svg>
+                        Send Bill via WhatsApp (Simulated)
+                    </a>
+                    
+                    <button onclick="resetApplication()" class="w-full mt-4 p-3 font-semibold text-gray-700 rounded-lg border-2 hover:bg-gray-100 transition-colors">
+                        Start New Order
+                    </button>
+                </div>
+            `;
+        }
+
+
+        // --- UI CONTROL FUNCTIONS ---
+
+        /** Toggles between different views. */
+        function setView(newView) {
+            state.view = newView;
+            document.getElementById('cart-icon-container').classList.toggle('hidden', newView !== 'ordering');
+            
+            // Toggle desktop cart visibility based on view
+            const desktopCartWrapper = document.getElementById('cart-panel-desktop-wrapper');
+            if (desktopCartWrapper) {
+                desktopCartWrapper.classList.toggle('hidden', newView !== 'ordering');
+            }
+
+            switch (newView) {
+                case 'ordering':
+                    renderProductList();
+                    break;
+                case 'checkout':
+                    renderCheckoutPage();
+                    break;
+                case 'bill':
+                    renderBillConfirmation();
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        /** Toggles the mobile cart panel visibility. 
+         * @param {boolean} [forceState] - Optional state to force (true = open, false = close).
+         */
+        function toggleCartPanel(forceState) {
+            state.isCartOpen = (typeof forceState === 'boolean') ? forceState : !state.isCartOpen;
+            cartPanelMobile.classList.toggle('translate-x-full', !state.isCartOpen);
+        }
+
+        /** Shows a custom message modal. */
+        function showMessageModal(title, body) {
+            messageModalTitle.textContent = title;
+            messageModalBody.textContent = body;
+            messageModal.classList.remove('hidden', 'opacity-0');
+            messageModal.classList.add('flex', 'opacity-100');
+        }
+
+        /** Closes the custom message modal. */
+        function closeMessageModal() {
+            messageModal.classList.remove('opacity-100');
+            messageModal.classList.add('opacity-0');
+            setTimeout(() => {
+                messageModal.classList.remove('flex');
+                messageModal.classList.add('hidden');
+            }, 300);
+        }
+
+        // --- EVENT HANDLERS ---
+
+        /** Handles mobile number validation and view transition. */
+        function handlePhoneInput() {
+            const num = mobileInput.value.replace(/\D/g, '');
+            mobileInput.value = num; // Keep only digits
+
+            if (num.length === 10) {
+                startOrderBtn.disabled = false;
+                phoneError.classList.add('hidden');
+                startOrderBtn.classList.remove('bg-gray-400');
+            } else {
+                startOrderBtn.disabled = true;
+                startOrderBtn.classList.add('bg-gray-400');
+            }
+        }
+
+        /** Handles starting the order after phone number is entered. */
+        function handleStartOrder() {
+            const num = mobileInput.value.trim();
+            if (num.length === 10) {
+                state.mobileNumber = num;
+                phoneModal.classList.add('opacity-0');
+                setTimeout(() => {
+                    phoneModal.classList.add('hidden');
+                    setView('ordering');
+                }, 300);
+            } else {
+                phoneError.classList.remove('hidden');
+            }
+        }
+
+        /** Handles clicking the checkout button in the cart. */
+        function handleCheckoutClick() {
+            if (state.cart.length > 0) {
+                setView('checkout');
+            }
+        }
+
+        /** Handles final payment, stock reduction, and bill generation. */
+        function completePayment() {
+            // 1. Simulate Stock Reduction
+            finalizeOrderStockReduction();
+
+            // 2. Generate Bill (Simulate WhatsApp API call)
+            const billMessage = generateWhatsAppBill();
+            console.log('--- WhatsApp Bill Generated ---');
+            console.log(billMessage);
+            console.log('-------------------------------');
+
+            // 3. Update view
+            setView('bill');
+
+            // 4. Handle UPI Simulation
+            if (state.paymentMethod === 'UPI Payment') {
+                // Simulate UPI QR/Redirect (e.g., redirecting the user)
+                showMessageModal('Payment Simulation', 'Redirecting to UPI app or displaying QR Code for payment of ₹' + state.grandTotal.toFixed(0) + '. (Simulated)');
+            } else {
+                showMessageModal('Payment Successful', 'Cash payment confirmed. Thank you!');
+            }
+        }
+
+        /** Generates the WhatsApp bill message text. */
+        function generateWhatsAppBill() {
+            const itemLines = state.cart.map(item =>
+                `${item.name} x ${item.qty} = ₹${(item.price * item.qty).toFixed(0)}`
+            ).join('\n');
+
+            const taxAmount = state.subtotal * APP_TAX_RATE;
+            const orderTypeStatus = state.orderType === 'Dine-in' ? 'Dine-In 🍽️' : 'Parcel (Takeaway) 📦';
+            const thankYouMessage = state.orderType === 'Dine-in' ?
+                'Thank you! Your juice will be served shortly. 🍹' :
+                'Thank you! Collect your parcel at the counter. 📦';
+
+            return `*🍹 Juice Shop Bill*
+---------------------------------
+${itemLines}
+---------------------------------
+Subtotal: ₹${state.subtotal.toFixed(0)}
+Tax (5%): ₹${taxAmount.toFixed(0)}
+*Total Amount: ₹${state.grandTotal.toFixed(0)}*
+Payment Mode: ${state.paymentMethod}
+Order Type: ${orderTypeStatus}
+---------------------------------
+${thankYouMessage}`;
+        }
+
+        /** Resets the application state for a new order. */
+        function resetApplication() {
+            state.mobileNumber = '';
+            state.cart = [];
+            state.subtotal = 0;
+            state.grandTotal = 0;
+            state.view = 'phone_entry';
+
+            mobileInput.value = '';
+            startOrderBtn.disabled = true;
+            startOrderBtn.classList.add('bg-gray-400');
+            phoneModal.classList.remove('hidden', 'opacity-0');
+            phoneModal.classList.add('flex', 'opacity-100');
+            
+            // Hide all cart displays
+            const desktopCartWrapper = document.getElementById('cart-panel-desktop-wrapper');
+            if (desktopCartWrapper) desktopCartWrapper.classList.add('hidden');
+            toggleCartPanel(false);
+
+            renderCartPanel(); 
+        }
+
+        // --- INITIALIZATION ---
+        window.onload = () => {
+            initializeStock();
+
+            // Setup Event Listeners
+            mobileInput.addEventListener('input', handlePhoneInput);
+            startOrderBtn.addEventListener('click', handleStartOrder);
+
+            // Hide the desktop cart wrapper initially (it's hidden by default, but this ensures JS state matches)
+            const desktopCartWrapper = document.getElementById('cart-panel-desktop-wrapper');
+            if (desktopCartWrapper) desktopCartWrapper.classList.add('hidden');
+        };
+    </script>
+</body>
+</html>
+
+
+
