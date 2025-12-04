@@ -3,630 +3,1031 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Juice Shop Kiosk</title>
+  <title>Juice Hub — Kiosk & Admin</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <!-- jsPDF for PDF generation -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
-    :root{--primary-color:#F87171;--secondary-color:#6EE7B7}
-    body{font-family:'Inter',sans-serif;background:#f7f7f7}
-    .juice-card{transition:transform .3s ease,box-shadow .3s ease;cursor:pointer}
-    .juice-card:hover:not(.opacity-50){transform:translateY(-4px);box-shadow:0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -2px rgba(0,0,0,.05)}
-    .add-btn{background:var(--primary-color);transition:all .3s ease-in-out}
-    .add-btn:hover:not(:disabled){background:#EF4444;transform:scale(1.01)}
-    .stepper-ui{display:flex;align-items:center;justify-content:space-between;overflow:hidden;opacity:0;max-height:0;transition:opacity .3s ease,max-height .3s ease}
-    .stepper-ui.active{opacity:1;max-height:40px;margin-top:.5rem}
-    .cart-panel-mobile{transition:transform .3s ease-out;z-index:50}
-    .scrollable-content::-webkit-scrollbar{width:6px}
-    .scrollable-content::-webkit-scrollbar-thumb{background:#D1D5DB;border-radius:3px}
-    .scrollable-content::-webkit-scrollbar-track{background:#F3F4F6}
-    .modal-bg{background:rgba(0,0,0,.6);backdrop-filter:blur(4px);z-index:60}
+    :root{--primary:#F87171;--accent:#6EE7B7}
+    body{font-family:Inter,system-ui,Arial,Helvetica,sans-serif;background:#f7f7f7}
+    .modal-bg{background:rgba(0,0,0,.56);backdrop-filter:blur(4px);z-index:60}
+    .juice-card{transition:transform .18s,box-shadow .18s}
+    .juice-card:hover{transform:translateY(-4px);box-shadow:0 10px 20px rgba(0,0,0,.08)}
+    .center-modal{display:flex;align-items:center;justify-content:center}
+    .stepper-btn{width:36px;height:36px;display:flex;align-items:center;justify-content:center}
   </style>
 </head>
 <body class="min-h-screen">
 
-  <div id="app" class="relative">
-    <header class="bg-white shadow-md sticky top-0 z-40">
-      <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
-        <h1 class="text-3xl font-extrabold text-gray-900 flex items-center">
-          <span class="text-4xl mr-2" style="color:var(--primary-color)">🍹</span>
-          Juice Hub
-        </h1>
-        <div id="cart-icon-container" class="relative cursor-pointer md:hidden" onclick="toggleCartPanel()">
-          <svg class="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-               xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-               d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-          <span id="mobile-cart-badge" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center opacity-0 transition-opacity">0</span>
+<div id="app">
+
+  <!-- Mode Select -->
+  <div id="mode-screen" class="min-h-screen flex items-center justify-center p-6">
+    <div class="w-full max-w-3xl bg-white rounded-2xl shadow-xl p-8">
+      <h1 class="text-3xl font-extrabold mb-2" style="color:var(--primary)">🍹 Juice Hub</h1>
+      <p class="text-gray-600 mb-6">Choose mode: Customer (Kiosk) or Shop Owner (Admin).</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <button onclick="enterCustomerMode()" class="p-6 rounded-xl border hover:shadow-sm text-left">
+          <div class="text-xl font-bold">I'm a Customer</div>
+          <div class="text-sm text-gray-500 mt-1">Place an order on the kiosk — name & phone required.</div>
+        </button>
+        <button onclick="enterOwnerMode()" class="p-6 rounded-xl border hover:shadow-sm text-left">
+          <div class="text-xl font-bold">I'm the Shop Owner</div>
+          <div class="text-sm text-gray-500 mt-1">Open admin dashboard (Shopname & password).</div>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Customer Screen -->
+  <div id="customer-screen" class="hidden min-h-screen">
+    <header class="bg-white shadow sticky top-0 z-40">
+      <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+        <div class="flex items-center gap-3">
+          <div style="color:var(--primary)" class="text-4xl">🍹</div>
+          <div>
+            <h2 class="text-2xl font-extrabold">Juice Hub</h2>
+            <div class="text-sm text-gray-500">Freshly made — kiosk</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-4">
+          <div id="cust-header-info" class="text-right text-sm"></div>
+          <button onclick="returnToMode()" class="px-3 py-2 rounded border">Exit</button>
         </div>
       </div>
     </header>
 
-    <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-8 py-6 px-4 sm:px-6 lg:px-8">
-      <div id="content-area-wrapper" class="md:col-span-8 lg:col-span-9">
-        <div id="content-area"></div>
-      </div>
+    <main class="max-w-7xl mx-auto p-6 grid grid-cols-1 md:grid-cols-12 gap-6">
+      <section class="md:col-span-8 lg:col-span-9">
+        <div id="cust-top-area" class="mb-6"></div>
 
-      <div id="cart-panel-desktop-wrapper" class="hidden md:block md:col-span-4 lg:col-span-3">
-        <div id="cart-panel-desktop" class="sticky top-6 bg-white rounded-xl shadow-lg h-[calc(100vh-6rem)] flex flex-col overflow-hidden"></div>
-      </div>
-    </div>
-
-    <div id="cart-panel-mobile" class="cart-panel-mobile fixed inset-y-0 right-0 w-full max-w-sm bg-white shadow-2xl flex flex-col transform translate-x-full transition-transform md:hidden z-50"></div>
-
-    <!-- Login modal: ask name + phone -->
-    <div id="phone-modal" class="fixed inset-0 modal-bg flex items-center justify-center p-4 transition-opacity duration-300">
-      <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md transform transition-transform duration-300 scale-100">
-        <h2 class="text-3xl font-extrabold text-gray-900 mb-4" style="color:var(--primary-color)">Welcome to Juice Hub!</h2>
-        <p class="text-gray-600 mb-4">Enter name and mobile to start. Your bill will be sent via WhatsApp after payment.</p>
-
-        <input id="name-input" type="text" placeholder="Your name" class="w-full p-3 border-2 border-gray-300 rounded-lg mb-3 text-lg focus:border-red-400">
-        <input id="mobile-input" type="tel" placeholder="e.g., 9876543210" maxlength="10" class="w-full p-3 border-2 border-gray-300 rounded-lg mb-3 text-lg focus:border-red-400">
-        <div class="flex gap-3">
-          <button id="start-order-btn" class="flex-1 p-3 text-lg font-bold text-white rounded-lg add-btn disabled:opacity-50" disabled>Start Ordering</button>
-        </div>
-        <p id="phone-error" class="text-red-500 text-sm mt-3 hidden">Please enter a valid name and 10-digit phone.</p>
-      </div>
-    </div>
-
-    <!-- Message modal -->
-    <div id="message-modal" class="fixed inset-0 modal-bg hidden items-center justify-center p-4 transition-opacity duration-300 opacity-0">
-      <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-sm transform scale-95 transition-transform duration-300">
-        <h3 id="message-modal-title" class="text-xl font-bold mb-3 text-red-500"></h3>
-        <p id="message-modal-body" class="text-gray-600 mb-6"></p>
-        <button onclick="closeMessageModal()" class="w-full p-2 font-semibold text-white rounded-lg bg-gray-500 hover:bg-gray-600">Got It</button>
-      </div>
-    </div>
-
-    <!-- QR Payment Modal -->
-    <div id="qr-modal" class="fixed inset-0 modal-bg hidden items-center justify-center p-4 transition-opacity duration-300">
-      <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-sm transform scale-100">
-        <h3 class="text-2xl font-bold mb-2" style="color:var(--primary-color)">UPI Payment</h3>
-        <p id="qr-amount" class="text-gray-600 mb-4"></p>
-
-        <!-- Sample QR (embedded base64 PNG placeholder) -->
-        <div class="flex justify-center mb-4">
-          <img id="sample-qr" src="" alt="Sample QR" class="w-48 h-48 object-contain bg-white p-3 border rounded-md">
+        <div class="mb-6 flex gap-3">
+          <div class="bg-white p-4 rounded-2xl shadow flex items-center gap-4">
+            <div class="font-semibold">Order Type:</div>
+            <div class="flex items-center gap-2">
+              <button id="dine-btn" onclick="setOrderType('Dine-in')" class="px-4 py-2 rounded-lg border bg-white">Dine-in</button>
+              <button id="parcel-btn" onclick="setOrderType('Parcel')" class="px-4 py-2 rounded-lg border bg-white">Parcel (+₹10)</button>
+            </div>
+          </div>
         </div>
 
-        <div class="text-sm text-gray-700 mb-4">
-          <p>Scan the QR with any UPI app and pay the payable amount.</p>
-          <p class="mt-2">After paying, click <strong>Payment Done</strong>.</p>
-        </div>
+        <div id="product-area"></div>
+      </section>
 
-        <div class="flex gap-3">
-          <button onclick="onPaymentDone()" class="flex-1 p-3 text-lg font-bold text-white rounded-lg bg-green-600">Payment Done</button>
-          <button onclick="closeQRModal()" class="flex-1 p-3 text-lg font-bold rounded-lg border">Cancel</button>
+      <aside class="md:col-span-4 lg:col-span-3">
+        <div id="cart-panel" class="bg-white rounded-2xl shadow p-4 sticky top-6">
+          <h3 class="font-bold text-lg">Your Order</h3>
+          <div id="cart-list" class="mt-3 space-y-3"></div>
+          <div id="cart-summary" class="mt-4 text-sm"></div>
+          <div class="mt-4">
+            <button id="open-checkout-btn" onclick="openCheckout('customer')" class="w-full bg-red-500 text-white p-3 rounded-lg disabled:opacity-50" disabled>Checkout</button>
+          </div>
         </div>
-      </div>
-    </div>
-
+      </aside>
+    </main>
   </div>
 
-<script>
-  // --- Constants and initial data ---
-  const APP_TAX_RATE = 0.05;
-  const INITIAL_STOCK = 10;
-  const JUICES = [
-    { id: 1, name: 'Mango Juice', price: 60, icon: '🥭' },
-    { id: 2, name: 'Watermelon', price: 50, icon: '🍉' },
-    { id: 3, name: 'Orange Juice', price: 55, icon: '🍊' },
-    { id: 4, name: 'Pineapple', price: 65, icon: '🍍' },
-    { id: 5, name: 'Mix Fruit', price: 75, icon: '🍎🍌' },
-    { id: 6, name: 'Strawberry', price: 80, icon: '🍓' },
-    { id: 7, name: 'Apple Delight', price: 70, icon: '🍏' },
-    { id: 8, name: 'Grapes', price: 60, icon: '🍇' },
-    { id: 9, name: 'Banana Shake', price: 85, icon: '🍌' },
-    { id: 10, name: 'Chikoo Milkshake', price: 90, icon: '🧋' },
-  ];
-
-  let state = {
-    view: 'phone_entry',
-    mobileNumber: '',
-    userName: '',
-    userPoints: 0,
-    cart: [],
-    stock: {},
-    orderType: 'Dine-in',
-    paymentMethod: 'UPI Payment',
-    subtotal: 0,
-    grandTotal: 0,
-    isCartOpen: false,
-    redeemed: false
-  };
-
-  // DOM
-  const contentArea = document.getElementById('content-area');
-  const phoneModal = document.getElementById('phone-modal');
-  const nameInput = document.getElementById('name-input');
-  const mobileInput = document.getElementById('mobile-input');
-  const startOrderBtn = document.getElementById('start-order-btn');
-  const phoneError = document.getElementById('phone-error');
-  const cartPanelDesktop = document.getElementById('cart-panel-desktop');
-  const cartPanelMobile = document.getElementById('cart-panel-mobile');
-  const mobileCartBadge = document.getElementById('mobile-cart-badge');
-  const messageModal = document.getElementById('message-modal');
-  const messageModalTitle = document.getElementById('message-modal-title');
-  const messageModalBody = document.getElementById('message-modal-body');
-  const qrModal = document.getElementById('qr-modal');
-  const sampleQRImg = document.getElementById('sample-qr');
-  const qrAmountText = document.getElementById('qr-amount');
-
-  // --- Storage helpers for members ---
-  function loadMembers() {
-    return JSON.parse(localStorage.getItem('juice_members') || '{}');
-  }
-  function saveMembers(members) {
-    localStorage.setItem('juice_members', JSON.stringify(members));
-  }
-
-  // --- Stock management (localStorage) ---
-  function initializeStock() {
-    const storedStock = localStorage.getItem('juiceShopStock');
-    if (storedStock) {
-      state.stock = JSON.parse(storedStock);
-    } else {
-      JUICES.forEach(j => state.stock[j.id] = INITIAL_STOCK);
-      saveStock();
-    }
-  }
-  function saveStock() {
-    localStorage.setItem('juiceShopStock', JSON.stringify(state.stock));
-  }
-  function finalizeOrderStockReduction() {
-    state.cart.forEach(item => {
-      const cur = state.stock[item.id] || 0;
-      state.stock[item.id] = Math.max(0, cur - item.qty);
-    });
-    saveStock();
-  }
-
-  // --- Totals & cart logic ---
-  function updateTotals() {
-    state.subtotal = state.cart.reduce((s,i)=> s + (i.price*i.qty), 0);
-    state.grandTotal = state.subtotal * (1 + APP_TAX_RATE);
-    renderCartPanel();
-  }
-
-  function addToCart(productId) {
-    const product = JUICES.find(j=>j.id===productId);
-    if(!product) return;
-    const cartItem = state.cart.find(c=>c.id===productId);
-    const currentStock = state.stock[productId] || 0;
-    const newQty = (cartItem?cartItem.qty:0) + 1;
-    if(newQty > currentStock) {
-      showMessageModal('Stock Limited', `Only ${currentStock} items available.`);
-      return;
-    }
-    if(cartItem) cartItem.qty = newQty;
-    else state.cart.push({ id:product.id, name:product.name, price:product.price, qty:1 });
-    updateTotals();
-    renderProductList();
-    if(state.cart.length===1 && window.innerWidth<768) toggleCartPanel(true);
-  }
-
-  function updateCartQuantity(productId, delta) {
-    const item = state.cart.find(i=>i.id===productId);
-    if(!item) return;
-    const currentStock = state.stock[productId] || 0;
-    const newQty = item.qty + delta;
-    if(newQty > currentStock){ showMessageModal('Stock Limited', `Only ${currentStock} items available.`); return; }
-    if(newQty<=0) removeFromCart(productId);
-    else { item.qty = newQty; updateTotals(); }
-    renderProductList();
-  }
-
-  function removeFromCart(productId) {
-    state.cart = state.cart.filter(i=>i.id!==productId);
-    updateTotals();
-    renderProductList();
-    if(state.cart.length===0 && window.innerWidth<768) toggleCartPanel(false);
-  }
-
-  // --- UI Rendering ---
-  function renderUserInfoHTML() {
-    if(!state.userName) return '';
-    return `<div class="mb-4 p-4 bg-white rounded-xl shadow">
-      <div class="flex justify-between items-center">
-        <div>
-          <div class="font-semibold text-gray-800">Member: ${escapeHtml(state.userName)}</div>
-          <div class="text-sm text-gray-500">+91 ${state.mobileNumber}</div>
-        </div>
-        <div class="text-right">
-          <div class="text-sm text-gray-500">Points</div>
-          <div class="font-bold text-lg text-gray-800">${state.userPoints}</div>
-        </div>
+  <!-- Customer Login Modal -->
+  <div id="cust-login-modal" class="fixed inset-0 modal-bg hidden center-modal p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 transform transition">
+      <h3 class="text-2xl font-bold mb-2" style="color:var(--primary)">Welcome — Please enter details</h3>
+      <p class="text-gray-600 mb-4">We will send your bill via WhatsApp.</p>
+      <input id="input-name" class="w-full border rounded p-3 mb-3" placeholder="Your name">
+      <input id="input-phone" class="w-full border rounded p-3 mb-3" placeholder="10-digit mobile number" maxlength="10">
+      <div class="flex gap-3">
+        <button id="start-order" class="flex-1 bg-red-500 text-white p-3 rounded disabled:opacity-50" disabled onclick="startCustomer()">Start Ordering</button>
+        <button class="flex-1 border p-3 rounded" onclick="cancelCustomerLogin()">Cancel</button>
       </div>
-    </div>`;
-  }
-
-  function renderProductList() {
-    if(state.view !== 'ordering') return;
-    const cartItemIds = state.cart.map(i=>i.id);
-    const productListHTML = JUICES.map(juice=>{
-      const inCart = cartItemIds.includes(juice.id);
-      const item = state.cart.find(i=>i.id===juice.id);
-      const currentStock = state.stock[juice.id] || 0;
-      const out = currentStock===0;
-      return `<div class="juice-card bg-white p-6 rounded-xl shadow-lg flex flex-col justify-between ${out?'opacity-50 grayscale':''}">
-        <div>
-          <div class="text-4xl mb-3">${juice.icon}</div>
-          <h3 class="text-xl font-bold text-gray-900">${juice.name}</h3>
-          <p class="text-2xl font-extrabold text-red-500 mt-1">₹${juice.price}</p>
-          <p class="text-sm text-gray-500 mt-1">Stock: ${currentStock}</p>
-        </div>
-        <div id="controls-${juice.id}" class="mt-4">
-          ${inCart ? `<div class="stepper-ui active justify-center p-1 border-2 border-red-400 rounded-lg">
-            <button onclick="updateCartQuantity(${juice.id}, -1)" class="bg-red-400 text-white rounded-md p-1 font-bold w-8 h-8">-</button>
-            <span class="text-lg font-bold text-gray-800 mx-4">${item.qty}</span>
-            <button onclick="updateCartQuantity(${juice.id}, 1)" class="bg-red-400 text-white rounded-md p-1 font-bold w-8 h-8">+</button>
-          </div>` : `<button onclick="addToCart(${juice.id})" class="add-btn w-full p-2 text-lg font-bold text-white rounded-lg shadow-md ${out?'bg-gray-400 cursor-not-allowed':''}" ${out?'disabled':''}>${out?'Out of Stock':'Add'}</button>`}
-        </div>
-      </div>`;
-    }).join('');
-    contentArea.innerHTML = `${renderUserInfoHTML()}<div class="mb-6 text-center">
-      <h2 class="text-3xl font-extrabold text-gray-900">Select Your Juices</h2>
-      <p class="text-gray-500">Freshly made just for you.</p>
+      <p id="cust-login-error" class="text-red-500 text-sm mt-3 hidden">Please enter valid details.</p>
     </div>
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">${productListHTML}</div>`;
-    renderCartPanel();
+  </div>
+
+  <!-- Checkout Modal -->
+  <div id="checkout-modal" class="fixed inset-0 modal-bg hidden center-modal p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
+      <h3 class="text-2xl font-bold mb-3" style="color:var(--primary)">Final Checkout</h3>
+      <div id="checkout-items" class="text-sm mb-4 max-h-56 overflow-y-auto"></div>
+
+      <div class="mb-3">
+        <div class="flex gap-3">
+          <label class="flex items-center gap-2"><input type="radio" name="co-order-type" value="Dine-in" onchange="checkoutSetOrderType('Dine-in')"> Dine-in</label>
+          <label class="flex items-center gap-2"><input type="radio" name="co-order-type" value="Parcel" onchange="checkoutSetOrderType('Parcel')"> Parcel (+₹10)</label>
+        </div>
+      </div>
+
+      <div id="checkout-redeem" class="mb-3 hidden">
+        <label class="flex items-center gap-2"><input id="checkout-redeem-checkbox" type="checkbox"> Redeem 100 points for ₹50 off</label>
+      </div>
+
+      <div id="checkout-summary" class="mb-4 text-sm"></div>
+
+      <div class="flex gap-3">
+        <button id="checkout-pay-btn" class="flex-1 bg-red-500 text-white p-3 rounded" onclick="checkoutPayClicked('customer')">Pay & Generate Bill</button>
+        <button class="flex-1 border p-3 rounded" onclick="closeCheckout()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- QR Modal -->
+  <div id="qr-modal" class="fixed inset-0 modal-bg hidden center-modal p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 text-center">
+      <h3 class="text-xl font-bold mb-2" style="color:var(--primary)">UPI Payment (Sample)</h3>
+      <p id="qr-amt" class="text-gray-700 mb-3"></p>
+      <img id="qr-img" src="" alt="QR" class="mx-auto w-48 h-48 bg-white p-2 rounded" />
+      <p class="text-sm text-gray-500 mt-3">Scan & pay via UPI app, then click <strong>Payment Done</strong>.</p>
+      <div class="flex gap-3 mt-4">
+        <button onclick="paymentDone()" class="flex-1 bg-green-600 text-white p-3 rounded">Payment Done</button>
+        <button onclick="closeQR()" class="flex-1 border p-3 rounded">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Success Modal -->
+  <div id="success-modal" class="fixed inset-0 modal-bg hidden center-modal p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 text-center">
+      <div class="text-6xl text-green-500 mb-3">✅</div>
+      <h3 class="text-2xl font-bold mb-2">Order Placed</h3>
+      <p class="text-gray-600 mb-4">Bill is opened in WhatsApp. Order ID: <span id="success-orderid"></span></p>
+      <button class="bg-gray-100 px-4 py-2 rounded" onclick="closeSuccess()">OK</button>
+    </div>
+  </div>
+
+  <!-- Admin Login Modal -->
+  <div id="admin-login-modal" class="fixed inset-0 modal-bg hidden center-modal p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+      <h3 class="text-2xl font-bold mb-2" style="color:var(--primary)">Admin Login</h3>
+      <p class="text-gray-600 mb-4">Enter shop name and password.</p>
+      <input id="admin-shopname" class="w-full border rounded p-3 mb-3" placeholder="Shop Name (e.g., JuiceHub)">
+      <input id="admin-pass" type="password" class="w-full border rounded p-3 mb-3" placeholder="Password">
+      <div class="flex gap-3">
+        <button class="flex-1 bg-gray-800 text-white p-3 rounded" onclick="adminLogin()">Login</button>
+        <button class="flex-1 border p-3 rounded" onclick="closeAdminLogin()">Cancel</button>
+      </div>
+      <p id="admin-login-error" class="text-red-500 text-sm mt-3 hidden">Invalid credentials</p>
+    </div>
+  </div>
+
+  <!-- Admin Screen -->
+  <div id="admin-screen" class="hidden min-h-screen flex bg-gray-50">
+    <aside class="w-72 bg-white p-4 border-r min-h-screen">
+      <div class="mb-6">
+        <div id="admin-shop-title" class="text-xl font-extrabold" style="color:var(--primary)">Juice Hub</div>
+        <div id="admin-sub" class="text-sm text-gray-500">Owner Panel</div>
+      </div>
+      <nav class="space-y-2">
+        <button id="nav-dashboard" class="w-full text-left p-3 rounded hover:bg-gray-100" onclick="adminNavigate('dashboard')">Dashboard</button>
+        <button id="nav-orders" class="w-full text-left p-3 rounded hover:bg-gray-100" onclick="adminNavigate('orders')">Orders (Pending)</button>
+        <button id="nav-history" class="w-full text-left p-3 rounded hover:bg-gray-100" onclick="adminNavigate('history')">Order History</button>
+        <button id="nav-customers" class="w-full text-left p-3 rounded hover:bg-gray-100" onclick="adminNavigate('customers')">Customers</button>
+        <button id="nav-juices" class="w-full text-left p-3 rounded hover:bg-gray-100" onclick="adminNavigate('juices')">Juices Inventory</button>
+        <button id="nav-billing" class="w-full text-left p-3 rounded hover:bg-gray-100" onclick="adminNavigate('billing')">Billing (Walk-in)</button>
+        <button class="w-full text-left p-3 rounded text-red-600 hover:bg-gray-100" onclick="adminLogout()">Logout</button>
+      </nav>
+    </aside>
+
+    <main id="admin-content" class="flex-1 p-6"></main>
+  </div>
+
+</div>
+
+<script>
+/* -----------------------
+   LocalStorage keys & init
+   ----------------------- */
+const LS = {
+  JUICES: 'jh_juices',
+  MEMBERS: 'jh_members',
+  ORDERS: 'jh_orders',
+  ORDERID: 'jh_orderid',
+  OWNER: 'jh_owner'
+};
+const SAMPLE_QR = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADICAYAAACtWK6eAAABmklEQVR4nO3RAQ0AAAgDoJvc6F9hgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD4D0oAARr0o3gAAAAASUVORK5CYII=';
+
+function initDefaults(){
+  if(!localStorage.getItem(LS.JUICES)){
+    const defaultJs = [
+      { id:1, name:'Mango Juice', price:60, stock:10, icon:'🥭' },
+      { id:2, name:'Watermelon', price:50, stock:10, icon:'🍉' },
+      { id:3, name:'Orange Juice', price:55, stock:10, icon:'🍊' },
+      { id:4, name:'Pineapple', price:65, stock:10, icon:'🍍' },
+      { id:5, name:'Mix Fruit', price:75, stock:10, icon:'🍎' },
+      { id:6, name:'Strawberry', price:80, stock:10, icon:'🍓' }
+    ];
+    localStorage.setItem(LS.JUICES, JSON.stringify(defaultJs));
   }
+  if(!localStorage.getItem(LS.MEMBERS)) localStorage.setItem(LS.MEMBERS, JSON.stringify({}));
+  if(!localStorage.getItem(LS.ORDERS)) localStorage.setItem(LS.ORDERS, JSON.stringify([]));
+  if(!localStorage.getItem(LS.ORDERID)) localStorage.setItem(LS.ORDERID, '1');
+  if(!localStorage.getItem(LS.OWNER)) localStorage.setItem(LS.OWNER, JSON.stringify({ shop: 'JuiceHub', pass: '1234' }));
+}
+initDefaults();
 
-  function renderCartPanel() {
-    const taxAmount = state.subtotal * APP_TAX_RATE;
-    const cartItemsHTML = state.cart.length>0 ? state.cart.map(item=>`
-      <div id="cart-item-${item.id}" class="flex items-center justify-between py-3 border-b border-gray-100">
-        <div class="flex flex-col flex-grow">
-          <span class="text-gray-800 font-semibold">${item.name}</span>
-          <span class="text-sm text-gray-500">@ ₹${item.price}</span>
+/* helpers */
+function loadJuices(){ return JSON.parse(localStorage.getItem(LS.JUICES) || '[]'); }
+function saveJuices(arr){ localStorage.setItem(LS.JUICES, JSON.stringify(arr)); }
+function loadMembers(){ return JSON.parse(localStorage.getItem(LS.MEMBERS) || '{}'); }
+function saveMembers(map){ localStorage.setItem(LS.MEMBERS, JSON.stringify(map)); }
+function loadOrders(){ return JSON.parse(localStorage.getItem(LS.ORDERS) || '[]'); }
+function saveOrders(arr){ localStorage.setItem(LS.ORDERS, JSON.stringify(arr)); }
+function getOrderID(){ return Number(localStorage.getItem(LS.ORDERID) || '1'); }
+function nextOrderID(){ const id = getOrderID(); localStorage.setItem(LS.ORDERID, String(id+1)); return id; }
+function getOwner(){ return JSON.parse(localStorage.getItem(LS.OWNER) || '{}'); }
+function esc(s){ return String(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+/* -----------------------
+   App states
+   ----------------------- */
+let MODE = null; // 'customer' | 'admin'
+let CUSTOMER = { name:'', phone:'', points:0, cart:[], orderType:'Dine-in', redeem:false, paymentMode:'UPI' };
+
+/* -----------------------
+   Mode switch
+   ----------------------- */
+function enterCustomerMode(){
+  MODE = 'customer';
+  document.getElementById('mode-screen').classList.add('hidden');
+  document.getElementById('customer-screen').classList.remove('hidden');
+  showCustomerLogin();
+  renderProducts();
+  renderCart();
+}
+function enterOwnerMode(){
+  MODE = 'admin';
+  document.getElementById('mode-screen').classList.add('hidden');
+  document.getElementById('admin-login-modal').classList.remove('hidden');
+  document.getElementById('admin-shopname').value = getOwner().shop || 'JuiceHub';
+}
+function returnToMode(){
+  MODE = null;
+  document.getElementById('customer-screen').classList.add('hidden');
+  document.getElementById('admin-screen').classList.add('hidden');
+  document.getElementById('mode-screen').classList.remove('hidden');
+  CUSTOMER = { name:'', phone:'', points:0, cart:[], orderType:'Dine-in', redeem:false, paymentMode:'UPI' };
+}
+
+/* -----------------------
+   Customer Login modal
+   ----------------------- */
+function showCustomerLogin(){
+  document.getElementById('cust-login-modal').classList.remove('hidden');
+  document.getElementById('input-name').value = '';
+  document.getElementById('input-phone').value = '';
+  document.getElementById('start-order').disabled = true;
+  document.getElementById('cust-login-error').classList.add('hidden');
+}
+function cancelCustomerLogin(){ document.getElementById('cust-login-modal').classList.add('hidden'); returnToMode(); }
+document.getElementById('input-name').addEventListener('input', customerLoginInput);
+document.getElementById('input-phone').addEventListener('input', customerLoginInput);
+function customerLoginInput(){
+  const name = document.getElementById('input-name').value.trim();
+  const phone = document.getElementById('input-phone').value.replace(/\D/g,'');
+  document.getElementById('input-phone').value = phone;
+  document.getElementById('start-order').disabled = !(name.length>0 && phone.length===10);
+}
+function startCustomer(){
+  const name = document.getElementById('input-name').value.trim();
+  const phone = document.getElementById('input-phone').value.trim();
+  if(!name || phone.length!==10){ document.getElementById('cust-login-error').classList.remove('hidden'); return; }
+  CUSTOMER.name = name; CUSTOMER.phone = phone;
+  const members = loadMembers();
+  if(!members[phone]) members[phone] = { name, points: 0, orders: [] };
+  CUSTOMER.points = members[phone].points || 0;
+  saveMembers(members);
+  document.getElementById('cust-login-modal').classList.add('hidden');
+  renderCustomerHeader();
+  renderProducts();
+  renderCart();
+}
+
+/* -----------------------
+   Products & cart (customer)
+   ----------------------- */
+function renderCustomerHeader(){
+  const el = document.getElementById('cust-top-area');
+  el.innerHTML = `<div class="bg-white p-4 rounded-2xl shadow flex justify-between items-center">
+    <div>
+      <div class="font-semibold">${esc(CUSTOMER.name || 'Guest')}</div>
+      <div class="text-sm text-gray-500">+91 ${CUSTOMER.phone || '—'}</div>
+    </div>
+    <div class="text-right">
+      <div class="text-sm text-gray-500">Points</div>
+      <div class="font-bold">${CUSTOMER.points || 0}</div>
+    </div>
+  </div>`;
+  document.getElementById('cust-header-info').innerHTML = CUSTOMER.name ? `<div class="font-semibold">${esc(CUSTOMER.name)}</div><div class="text-xs text-gray-500">Points: ${CUSTOMER.points}</div>` : '';
+}
+
+function renderProducts(){
+  const juices = loadJuices();
+  const area = document.getElementById('product-area');
+  const html = juices.map(j => {
+    const cartItem = CUSTOMER.cart.find(c=>c.id===j.id);
+    const out = j.stock <= 0;
+    return `<div class="juice-card bg-white rounded-2xl p-5 shadow">
+      <div class="flex items-start gap-4">
+        <div class="text-4xl">${j.icon||'🍹'}</div>
+        <div class="flex-1">
+          <div class="font-bold text-lg">${esc(j.name)}</div>
+          <div class="text-red-500 font-extrabold text-xl">₹${j.price}</div>
+          <div class="text-sm text-gray-500">Stock: ${j.stock}</div>
         </div>
-        <div class="flex items-center space-x-2">
-          <button onclick="updateCartQuantity(${item.id}, -1)" class="text-red-400 font-bold text-xl">-</button>
-          <span class="font-bold text-gray-700 w-6 text-center">${item.qty}</span>
-          <button onclick="updateCartQuantity(${item.id}, 1)" class="text-red-400 font-bold text-xl">+</button>
-        </div>
-        <span class="font-bold text-gray-900 w-16 text-right">₹${(item.price * item.qty).toFixed(0)}</span>
-        <button onclick="removeFromCart(${item.id})" class="ml-3 text-gray-300 hover:text-red-500">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-        </button>
       </div>
-    `).join('') : `<div class="text-center py-10 text-gray-500"><span class="text-4xl block mb-2">🛒</span>Your cart is empty.</div>`;
-
-    const cartContentHTML = (isMobile)=>`
-      <div class="p-6 pb-2 border-b-2 border-red-400 flex justify-between items-center">
-        <h2 class="text-2xl font-extrabold text-gray-900">Your Order</h2>
-        ${isMobile ? `<button class="md:hidden text-gray-500 hover:text-gray-800" onclick="toggleCartPanel(false)"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>` : ''}
+      <div class="mt-4">
+        ${out ? `<button class="w-full p-2 bg-gray-200 rounded">Out of stock</button>` : cartItem ? `
+          <div class="flex items-center gap-3">
+            <button class="stepper-btn rounded bg-red-500 text-white" onclick="changeQty(${j.id}, -1)">-</button>
+            <div class="font-bold">${cartItem.qty}</div>
+            <button class="stepper-btn rounded bg-red-500 text-white" onclick="changeQty(${j.id}, 1)">+</button>
+          </div>` : `<button class="w-full p-2 bg-red-500 text-white rounded" onclick="addToCart(${j.id})">Add</button>`
+        }
       </div>
-      <div class="flex-grow p-6 overflow-y-auto scrollable-content">${cartItemsHTML}</div>
-      <div class="p-6 bg-gray-50 border-t border-gray-200">
-        <div class="space-y-1 text-sm">
-          <div class="flex justify-between font-medium text-gray-700"><span>Subtotal:</span><span>₹${state.subtotal.toFixed(0)}</span></div>
-          <div class="flex justify-between text-gray-500"><span>Tax (5%):</span><span>+ ₹${taxAmount.toFixed(0)}</span></div>
-          <div class="flex justify-between text-xl font-extrabold pt-2 text-gray-900"><span>Grand Total:</span><span class="text-red-500">₹${state.grandTotal.toFixed(0)}</span></div>
-          <p class="text-xs text-gray-500 mt-1">Mobile: ${state.mobileNumber}</p>
-        </div>
-        <button onclick="handleCheckoutClick()" class="w-full mt-4 p-3 text-lg font-bold text-white rounded-lg shadow-xl add-btn" ${state.cart.length===0?'disabled':''}>Checkout (${state.cart.length} items)</button>
-      </div>
-    `;
-    if(cartPanelDesktop) cartPanelDesktop.innerHTML = cartContentHTML(false);
-    if(cartPanelMobile) cartPanelMobile.innerHTML = cartContentHTML(true);
-
-    const totalItems = state.cart.reduce((s,i)=>s+i.qty,0);
-    mobileCartBadge.textContent = totalItems;
-    mobileCartBadge.classList.toggle('opacity-0', totalItems===0);
-  }
-
-  function renderCheckoutPage() {
-    if(state.view !== 'checkout') return;
-    const summaryHTML = state.cart.map(item=>`<div class="flex justify-between py-2 border-b border-gray-100"><span class="text-gray-700">${item.name} x ${item.qty}</span><span class="font-semibold text-gray-900">₹${(item.price*item.qty).toFixed(0)}</span></div>`).join('');
-    const taxAmount = state.subtotal * APP_TAX_RATE;
-    // Redeem option only if userPoints >= 100
-    const canRedeem = state.userPoints >= 100;
-    contentArea.innerHTML = `<div class="max-w-xl mx-auto p-6 bg-white rounded-xl shadow-2xl">
-      <h2 class="text-3xl font-extrabold text-gray-900 mb-6 border-b pb-3" style="color:var(--primary-color)"><span onclick="setView('ordering')" class="cursor-pointer mr-2 text-gray-400 hover:text-gray-600">&leftarrow;</span>Final Checkout</h2>
-      <div class="mb-6"><h3 class="text-xl font-bold mb-3 text-gray-800">Order Summary</h3>
-        <div class="p-4 bg-gray-50 rounded-lg">
-          ${summaryHTML}
-          <div class="flex justify-between text-sm pt-4 border-t mt-4"><span class="font-medium text-gray-700">Subtotal:</span><span>₹${state.subtotal.toFixed(0)}</span></div>
-          <div class="flex justify-between text-sm"><span class="font-medium text-gray-700">Tax (5%):</span><span>+ ₹${taxAmount.toFixed(0)}</span></div>
-          <div id="discount-row" class="flex justify-between text-sm ${canRedeem?'':'hidden'}"><span class="font-medium text-gray-700">Redeem (100 pts):</span><span>- ₹50</span></div>
-          <div class="flex justify-between text-2xl font-extrabold pt-2 text-gray-900"><span>Grand Total:</span><span class="text-red-500">₹${state.grandTotal.toFixed(0)}</span></div>
-          <p class="text-sm text-gray-500 mt-2">Bill will be sent to: <strong>+91 ${state.mobileNumber}</strong></p>
-        </div>
-      </div>
-
-      <div class="mb-6"><h3 class="text-xl font-bold mb-3 text-gray-800">Order Type</h3>
-        <div class="flex space-x-4">
-          <button onclick="state.orderType='Dine-in'; renderCheckoutPage();" class="flex-1 p-4 rounded-lg font-semibold transition-all shadow-md ${state.orderType==='Dine-in'?'bg-red-500 text-white':'bg-gray-200 text-gray-700 hover:bg-gray-300'}">Dine-in 🍽️</button>
-          <button onclick="state.orderType='Parcel'; renderCheckoutPage();" class="flex-1 p-4 rounded-lg font-semibold transition-all shadow-md ${state.orderType==='Parcel'?'bg-red-500 text-white':'bg-gray-200 text-gray-700 hover:bg-gray-300'}">Parcel (Takeaway) 📦</button>
-        </div>
-      </div>
-
-      <div class="mb-8"><h3 class="text-xl font-bold mb-3 text-gray-800">Payment</h3>
-        <div class="space-y-3">
-          <div class="flex items-center p-4 rounded-lg border-2 cursor-pointer transition-colors ${state.paymentMethod==='UPI Payment'?'border-red-500 bg-red-50':'border-gray-300 hover:border-red-400'}" onclick="state.paymentMethod='UPI Payment'; renderCheckoutPage();">
-            <input type="radio" name="payment" id="upi" value="UPI Payment" class="h-5 w-5 text-red-600" ${state.paymentMethod==='UPI Payment'?'checked':''}><label for="upi" class="ml-3 text-lg font-semibold text-gray-900">UPI Payment (QR)</label>
-          </div>
-          <div class="flex items-center p-4 rounded-lg border-2 cursor-pointer transition-colors ${state.paymentMethod==='Cash'?'border-red-500 bg-red-50':'border-gray-300 hover:border-red-400'}" onclick="state.paymentMethod='Cash'; renderCheckoutPage();">
-            <input type="radio" name="payment" id="cash" value="Cash" class="h-5 w-5 text-red-600" ${state.paymentMethod==='Cash'?'checked':''}><label for="cash" class="ml-3 text-lg font-semibold text-gray-900">Cash on Delivery</label>
-          </div>
-        </div>
-      </div>
-
-      <div class="mb-4 ${canRedeem?'':'hidden'}"><label class="flex items-center gap-3"><input id="redeem-checkbox" type="checkbox" class="h-4 w-4" onchange="onRedeemToggle(this.checked)"><span class="text-sm text-gray-700">Redeem 100 points for ₹50 discount</span></label></div>
-
-      <button onclick="startPaymentFlow()" class="w-full p-4 text-xl font-extrabold text-white rounded-lg shadow-xl" style="background-color:var(--primary-color)">${state.paymentMethod==='UPI Payment'?'Pay & Generate Bill':'Confirm & Generate Bill'}: ₹${state.grandTotal.toFixed(0)}</button>
     </div>`;
+  }).join('');
+  area.innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">${html}</div>`;
+}
 
-    // ensure discount row visibility toggles based on checkbox
-    document.getElementById('redeem-checkbox')?.checked && onRedeemToggle(document.getElementById('redeem-checkbox').checked);
+function addToCart(id){
+  const juices = loadJuices();
+  const j = juices.find(x=>x.id===id);
+  if(!j || j.stock <= 0) { alert('Out of stock'); return; }
+  const existing = CUSTOMER.cart.find(c=>c.id===id);
+  if(existing) existing.qty++;
+  else CUSTOMER.cart.push({ id: j.id, name: j.name, price: j.price, qty:1 });
+  renderCart(); renderProducts();
+}
+function changeQty(id, delta){
+  const item = CUSTOMER.cart.find(c=>c.id===id);
+  if(!item) return;
+  item.qty += delta;
+  if(item.qty <= 0) CUSTOMER.cart = CUSTOMER.cart.filter(c=>c.id!==id);
+  renderCart(); renderProducts();
+}
+function renderCart(){
+  const container = document.getElementById('cart-list');
+  if(!CUSTOMER.cart.length){
+    container.innerHTML = `<div class="text-gray-500 py-6 text-center">Cart is empty</div>`;
+    document.getElementById('open-checkout-btn').disabled = true;
+    return;
   }
+  const html = CUSTOMER.cart.map(it => `<div class="flex justify-between items-center">
+    <div><div class="font-semibold">${esc(it.name)}</div><div class="text-sm text-gray-500">₹${it.price} x ${it.qty}</div></div>
+    <div class="font-bold">₹${(it.price*it.qty).toFixed(0)}</div>
+  </div>`).join('<hr class="my-2">');
+  container.innerHTML = html;
+  document.getElementById('open-checkout-btn').disabled = false;
+  const subtotal = CUSTOMER.cart.reduce((s,i)=>s + i.price*i.qty, 0);
+  const parcel = CUSTOMER.orderType === 'Parcel' ? 10 : 0;
+  const discount = CUSTOMER.redeem ? 50 : 0;
+  const total = Math.max(0, subtotal + parcel - discount);
+  document.getElementById('cart-summary').innerHTML = `<div class="text-sm">Subtotal: ₹${subtotal.toFixed(0)}</div>
+    <div class="${parcel? 'text-sm':'hidden'}">Parcel: +₹10</div>
+    <div class="${discount? 'text-sm text-green-600':'hidden'}">Redeem applied: -₹50</div>
+    <div class="mt-2 font-bold text-lg text-red-500">Total: ₹${total.toFixed(0)}</div>`;
+}
+function setOrderType(type){
+  CUSTOMER.orderType = type;
+  document.getElementById('dine-btn').classList.toggle('bg-red-500', type==='Dine-in');
+  document.getElementById('dine-btn').classList.toggle('text-white', type==='Dine-in');
+  document.getElementById('parcel-btn').classList.toggle('bg-red-500', type==='Parcel');
+  document.getElementById('parcel-btn').classList.toggle('text-white', type==='Parcel');
+  renderCart();
+}
 
-  // --- Payment flow (sample QR & simulate) ---
-  // Provide a small sample QR as base64 png (placeholder)
-  const SAMPLE_QR_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADICAYAAACtWK6eAAABmklEQVR4nO3RAQ0AAAgDoJvc6F9hgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD4D0oAARr0o3gAAAAASUVORK5CYII=';
-
-  function startPaymentFlow() {
-    // Apply redeem logic before showing QR
-    // If redeem chosen reduce amount by 50
-    // Build payable amount in state.grandTotal
-    // Show QR modal if UPI or if Cash -> directly simulate success
-    if (state.paymentMethod === 'UPI Payment') {
-      // populate qr modal
-      qrAmountText.innerText = `Amount to pay: ₹${state.grandTotal.toFixed(0)}`;
-      sampleQRImg.src = SAMPLE_QR_BASE64;
-      openQRModal();
+/* -----------------------
+   Checkout & Payment
+   ----------------------- */
+function openCheckout(context='customer'){
+  const itemsDiv = document.getElementById('checkout-items');
+  itemsDiv.innerHTML = CUSTOMER.cart.map(i=>`<div class="flex justify-between mb-2"><div>${esc(i.name)} x ${i.qty}</div><div>₹${(i.price*i.qty).toFixed(0)}</div></div>`).join('');
+  const radios = document.getElementsByName('co-order-type');
+  radios.forEach(r=> r.checked = (r.value === CUSTOMER.orderType));
+  const members = loadMembers();
+  const mem = members[CUSTOMER.phone] || { points:0 };
+  document.getElementById('checkout-redeem').classList.toggle('hidden', !(mem.points >= 100));
+  document.getElementById('checkout-redeem-checkbox').checked = CUSTOMER.redeem;
+  updateCheckoutSummary();
+  document.getElementById('checkout-modal').classList.remove('hidden');
+}
+function checkoutSetOrderType(type){
+  CUSTOMER.orderType = type;
+  updateCheckoutSummary();
+}
+function updateCheckoutSummary(){
+  const subtotal = CUSTOMER.cart.reduce((s,i)=>s + i.price*i.qty, 0);
+  const parcel = CUSTOMER.orderType === 'Parcel' ? 10 : 0;
+  const discount = CUSTOMER.redeem ? 50 : 0;
+  const total = Math.max(0, subtotal + parcel - discount);
+  document.getElementById('checkout-summary').innerHTML = `<div class="text-sm">Subtotal: ₹${subtotal.toFixed(0)}</div>
+    <div class="${parcel? 'text-sm':'hidden'}">Parcel: +₹10</div>
+    <div class="${discount? 'text-sm text-green-600':'hidden'}">Discount: -₹50</div>
+    <div class="mt-2 font-bold text-lg text-red-500">Payable: ₹${total.toFixed(0)}</div>`;
+}
+document.getElementById('checkout-redeem-checkbox').addEventListener('change', (e)=> {
+  const members = loadMembers();
+  const mem = members[CUSTOMER.phone] || { points: 0 };
+  if(e.target.checked){
+    if((mem.points || 0) < 100){
+      alert('Customer does not have 100 points to redeem.');
+      e.target.checked = false;
+      CUSTOMER.redeem = false;
     } else {
-      // For cash, treat as immediate success
-      onPaymentDone();
+      CUSTOMER.redeem = true;
     }
+  } else {
+    CUSTOMER.redeem = false;
   }
+  updateCheckoutSummary();
+  renderCart();
+});
+function closeCheckout(){ document.getElementById('checkout-modal').classList.add('hidden'); }
 
-  function openQRModal() {
-    qrModal.classList.remove('hidden');
-    qrModal.classList.add('flex');
-  }
-  function closeQRModal() {
-    qrModal.classList.add('hidden');
-    qrModal.classList.remove('flex');
-  }
-
-  // Called when user clicks Payment Done
-  async function onPaymentDone() {
-    closeQRModal();
-
-    // 1. Reduce stock
-    finalizeOrderStockReduction();
-
-    // 2. Update points
-    const members = loadMembers();
-    const m = members[state.mobileNumber] || {name: state.userName, phone: state.mobileNumber, points:0};
-    if (state.redeemed) {
-      // per your requirement: after redeem it should start with 1 again
-      m.points = 1;
-    } else {
-      m.points = (m.points || 0) + 1;
-    }
-    members[state.mobileNumber] = m;
-    saveMembers(members);
-    state.userPoints = m.points;
-
-    // 3. Generate PDF bill and download
-    const pdfBlob = await generatePDFandDownload();
-
-    // 4. Generate WhatsApp message (text preview) and open
-    const billText = generateWhatsAppBill();
-    const encoded = encodeURIComponent(billText);
-    const waLink = `https://wa.me/91${state.mobileNumber}?text=${encoded}`;
-    // open wa in new tab
-    window.open(waLink, '_blank');
-
-    // 5. Show confirmation screen and reset cart
-    setView('bill');
-
-    // clear cart
-    state.cart = [];
-    updateTotals();
-    renderProductList();
-    state.redeemed = false;
-  }
-
-  // --- PDF Generation using jsPDF ---
-  async function generatePDFandDownload() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-
-    const left = 40;
-    let y = 60;
-    doc.setFontSize(20);
-    doc.setTextColor(40);
-    doc.text('🍹 Juice Shop Bill', left, y);
-    y += 30;
-    doc.setFontSize(12);
-    doc.text(`Name: ${state.userName}`, left, y); doc.text(`Phone: +91 ${state.mobileNumber}`, 350, y);
-    y += 20;
-    doc.text(`Order Type: ${state.orderType}`, left, y); doc.text(`Payment Mode: ${state.paymentMethod}`, 350, y);
-    y += 25;
-    doc.text(`Date: ${new Date().toLocaleString()}`, left, y);
-    y += 20;
-    doc.line(left, y, 560, y);
-    y += 15;
-
-    // Table header
-    doc.setFontSize(11);
-    doc.text('Item', left, y); doc.text('Qty', 330, y); doc.text('Price', 420, y); doc.text('Total', 500, y);
-    y += 8;
-    doc.line(left, y, 560, y);
-    y += 15;
-
-    state.cart.forEach(item => {
-      doc.text(item.name, left, y);
-      doc.text(String(item.qty), 330, y);
-      doc.text(`₹${item.price}`, 420, y);
-      doc.text(`₹${(item.price*item.qty).toFixed(0)}`, 500, y);
-      y += 18;
-    });
-
-    y += 6;
-    doc.line(left, y, 560, y);
-    y += 18;
-    doc.text(`Subtotal: ₹${state.subtotal.toFixed(0)}`, 420, y);
-    y += 18;
-    const taxAmount = state.subtotal * APP_TAX_RATE;
-    doc.text(`Tax (5%): ₹${taxAmount.toFixed(0)}`, 420, y);
-    y += 18;
-    if(state.redeemed) {
-      doc.text(`Redeem Discount: -₹50`, 420, y); y += 18;
-    }
-    doc.setFontSize(14);
-    doc.setTextColor(220,20,60);
-    doc.text(`Grand Total: ₹${state.grandTotal.toFixed(0)}`, 420, y);
-    y += 30;
-    doc.setFontSize(11);
-    doc.setTextColor(80);
-    doc.text('Thank you! Visit again. 🍹', left, y);
-
-    // Download
-    const fileName = `juice_bill_${state.mobileNumber}_${Date.now()}.pdf`;
-    doc.save(fileName);
-    // We cannot attach PDF to WhatsApp via wa.me; user can send it manually if needed.
-    return null;
-  }
-
-  // --- Bill message generation (text) ---
-  function generateWhatsAppBill() {
-    const itemLines = state.cart.map(i=> `${i.name} x ${i.qty} = ₹${(i.price*i.qty).toFixed(0)}`).join('\n');
-    const taxAmount = state.subtotal * APP_TAX_RATE;
-    const orderTypeStatus = state.orderType === 'Dine-in' ? 'Dine-In 🍽️' : 'Parcel (Takeaway) 📦';
-    const thankYou = state.orderType === 'Dine-in' ? 'Thank you! Your juice will be served shortly. 🍹' : 'Thank you! Collect your parcel at the counter. 📦';
-    let discountLine = state.redeemed ? '\nDiscount (Redeem 100 pts): -₹50' : '';
-    return `*🍹 Juice Shop Bill*\n---------------------------------\n${itemLines}\n---------------------------------\nSubtotal: ₹${state.subtotal.toFixed(0)}\nTax (5%): ₹${taxAmount.toFixed(0)}${discountLine}\n*Total Amount: ₹${state.grandTotal.toFixed(0)}*\nPayment Mode: ${state.paymentMethod}\nOrder Type: ${orderTypeStatus}\n---------------------------------\n${thankYou}`;
-  }
-
-  // --- UI control helpers ---
-  function setView(newView) {
-    state.view = newView;
-    document.getElementById('cart-icon-container').classList.toggle('hidden', newView !== 'ordering');
-    const desktopCartWrapper = document.getElementById('cart-panel-desktop-wrapper');
-    if (desktopCartWrapper) desktopCartWrapper.classList.toggle('hidden', newView !== 'ordering');
-    switch(newView) {
-      case 'ordering': renderProductList(); break;
-      case 'checkout': renderCheckoutPage(); break;
-      case 'bill': renderBillConfirmation(); break;
-    }
-  }
-
-  function toggleCartPanel(forceState) {
-    state.isCartOpen = (typeof forceState === 'boolean') ? forceState : !state.isCartOpen;
-    cartPanelMobile.classList.toggle('translate-x-full', !state.isCartOpen);
-  }
-
-  function showMessageModal(title, body) {
-    messageModalTitle.textContent = title;
-    messageModalBody.textContent = body;
-    messageModal.classList.remove('hidden','opacity-0');
-    messageModal.classList.add('flex','opacity-100');
-  }
-  function closeMessageModal() {
-    messageModal.classList.remove('opacity-100');
-    messageModal.classList.add('opacity-0');
-    setTimeout(()=>{ messageModal.classList.remove('flex'); messageModal.classList.add('hidden'); },300);
-  }
-
-  // --- Event handlers for login ---
-  function handleNamePhoneInput() {
-    const num = mobileInput.value.replace(/\D/g,'');
-    mobileInput.value = num;
-    const name = nameInput.value.trim();
-    if(num.length===10 && name.length>0) { startOrderBtn.disabled=false; phoneError.classList.add('hidden'); }
-    else { startOrderBtn.disabled=true; }
-  }
-
-  function handleStartOrder() {
-    const num = mobileInput.value.trim(); const name = nameInput.value.trim();
-    if(num.length===10 && name.length>0) {
-      state.mobileNumber = num; state.userName = name;
-      // load or create member
-      const members = loadMembers();
-      if(!members[num]) { members[num] = { name: name, phone: num, points: 0 }; saveMembers(members); }
-      state.userPoints = members[num].points;
-      phoneModal.classList.add('opacity-0');
-      setTimeout(()=>{ phoneModal.classList.add('hidden'); setView('ordering'); },300);
-    } else phoneError.classList.remove('hidden');
-  }
-
-  // Checkout click
-  function handleCheckoutClick(){ if(state.cart.length>0) setView('checkout'); }
-
-  // redeem toggle handler
-  function onRedeemToggle(checked) {
-    state.redeemed = !!checked;
-    // if redeemed, deduct 100 and apply discount immediately (and set grandTotal)
-    if(state.redeemed) {
-      // apply fixed ₹50 discount
-      const subtotal = state.subtotal;
-      const tax = subtotal * APP_TAX_RATE;
-      const newTotal = subtotal + tax - 50;
-      state.grandTotal = Math.max(0, newTotal);
-    } else {
-      state.grandTotal = state.subtotal * (1 + APP_TAX_RATE);
-    }
-    // update checkout view numbers
-    renderCheckoutPage();
-  }
-
-  // Called when clicking start payment (opens QR or simulates cash)
-  function startPaymentFlow() {
-    // ensure grand total reflects redeem state
-    if(state.redeemed) {
-      // already handled in toggle
-    } else {
-      state.grandTotal = state.subtotal * (1 + APP_TAX_RATE);
-    }
-    if(state.paymentMethod === 'UPI Payment') {
-      qrAmountText.innerText = `Amount to pay: ₹${state.grandTotal.toFixed(0)}`;
-      sampleQRImg.src = SAMPLE_QR_BASE64;
-      openQRModal();
-    } else {
-      onPaymentDone();
-    }
-  }
-
-  // Bill confirmation view
-  function renderBillConfirmation() {
-    if(state.view !== 'bill') return;
-    const billMessage = generateWhatsAppBill();
-    contentArea.innerHTML = `<div class="max-w-xl mx-auto p-8 bg-white rounded-xl shadow-2xl">
-      <div class="text-center">
-        <div class="text-6xl mb-4 text-green-500">🎉</div>
-        <h2 class="text-4xl font-extrabold text-gray-900 mb-3">Order Placed Successfully!</h2>
-        <p class="text-gray-600 mb-6">The bill has been generated and your WhatsApp will open for sending the bill.</p>
-      </div>
-      <div class="p-5 bg-gray-50 rounded-lg text-left mb-6 whitespace-pre-wrap text-sm border border-gray-200"><h3 class="font-bold text-gray-800 mb-2">WhatsApp Message Preview:</h3>${billMessage}</div>
-      <button onclick="resetApplication()" class="w-full mt-4 p-3 font-semibold text-gray-700 rounded-lg border-2 hover:bg-gray-100">Start New Order</button>
-    </div>`;
-  }
-
-  // Reset for new order (keeps member, points persist)
-  function resetApplication() {
-    state.cart = []; state.subtotal = 0; state.grandTotal = 0; state.view = 'ordering'; state.redeemed = false;
-    updateTotals(); renderProductList();
-  }
-
-  // Utility: sanitize text
-  function escapeHtml(str){ return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]); }
-
-  // Initialization
-  window.onload = () => {
-    initializeStock();
-    // event listeners
-    mobileInput.addEventListener('input', handleNamePhoneInput);
-    nameInput.addEventListener('input', handleNamePhoneInput);
-    startOrderBtn.addEventListener('click', handleStartOrder);
-    // ensure desktop cart hidden initially
-    const desktopCartWrapper = document.getElementById('cart-panel-desktop-wrapper');
-    if (desktopCartWrapper) desktopCartWrapper.classList.add('hidden');
+function checkoutPayClicked(context='customer'){
+  const subtotal = CUSTOMER.cart.reduce((s,i)=>s + i.price*i.qty, 0);
+  const parcel = CUSTOMER.orderType === 'Parcel' ? 10 : 0;
+  const discount = CUSTOMER.redeem ? 50 : 0;
+  const total = Math.max(0, subtotal + parcel - discount);
+  const id = nextOrderID();
+  const order = {
+    orderID: id,
+    items: CUSTOMER.cart.map(i=>({ id:i.id, name:i.name, qty:i.qty, price:i.price })),
+    subtotal, parcel, discount, total,
+    orderType: CUSTOMER.orderType,
+    redeemed: CUSTOMER.redeem,
+    paymentMode: 'UPI',
+    customerName: CUSTOMER.name,
+    customerPhone: CUSTOMER.phone,
+    status: 'pending',
+    time: new Date().toISOString()
   };
+  const orders = loadOrders(); orders.push(order); saveOrders(orders);
+
+  // reduce stock
+  const juices = loadJuices();
+  order.items.forEach(it=> {
+    const j = juices.find(x=>x.id===it.id); if(j) j.stock = Math.max(0, j.stock - it.qty);
+  });
+  saveJuices(juices);
+
+  CUSTOMER.cart = []; CUSTOMER.redeem = false; renderCart(); renderProducts(); renderCustomerHeader();
+  document.getElementById('checkout-modal').classList.add('hidden');
+
+  document.getElementById('qr-img').src = SAMPLE_QR;
+  document.getElementById('qr-amt').innerText = `Amount to pay: ₹${order.total.toFixed(0)}`;
+  document.getElementById('qr-modal').classList.remove('hidden');
+  window.lastPlacedOrderId = id;
+}
+
+function closeQR(){ document.getElementById('qr-modal').classList.add('hidden'); }
+function paymentDone(){
+  closeQR();
+  const orders = loadOrders();
+  const order = orders.find(o => o.orderID === window.lastPlacedOrderId);
+  if(!order){ alert('Order not found'); return; }
+  const msg = formatBillText(order, false);
+  window.open(`https://wa.me/91${order.customerPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+  document.getElementById('success-orderid').innerText = 'JH-' + String(order.orderID).padStart(4,'0');
+  document.getElementById('success-modal').classList.remove('hidden');
+}
+function closeSuccess(){ document.getElementById('success-modal').classList.add('hidden'); }
+
+function formatBillText(order, includePointsAfterCompletion){
+  const lines = [];
+  lines.push('🍹 Juice Hub Bill');
+  lines.push('Order ID: JH-' + String(order.orderID).padStart(4,'0'));
+  lines.push('--------------------------------');
+  order.items.forEach(i => lines.push(`${i.name} x ${i.qty} = ₹${(i.price*i.qty).toFixed(0)}`));
+  if(order.parcel) lines.push('Parcel Charges = ₹' + order.parcel);
+  lines.push('--------------------------------');
+  lines.push('Subtotal: ₹' + order.subtotal.toFixed(0));
+  if(order.discount) lines.push('Discount Applied: -₹' + order.discount);
+  lines.push('Final Amount: ₹' + order.total.toFixed(0));
+  lines.push('Payment: ' + order.paymentMode);
+  lines.push('Order Type: ' + (order.orderType || 'Dine-in'));
+  lines.push('Customer: ' + order.customerName);
+  lines.push('Phone: ' + order.customerPhone);
+  if(includePointsAfterCompletion){
+    const members = loadMembers();
+    const mem = members[order.customerPhone] || { points: 0 };
+    lines.push('Points Earned: 1 | Total Points: ' + (mem.points || 0));
+  } else {
+    lines.push('Points Earned: Will be added when order is completed by shop.');
+  }
+  lines.push('--------------------------------');
+  lines.push('Thank you! Visit again 💛');
+  return lines.join('\n');
+}
+
+/* -----------------------
+   ADMIN: Login & Nav
+   ----------------------- */
+function adminLogin(){
+  const shop = document.getElementById('admin-shopname').value.trim();
+  const pass = document.getElementById('admin-pass').value;
+  const owner = getOwner();
+  if(shop === owner.shop && pass === owner.pass){
+    document.getElementById('admin-login-modal').classList.add('hidden');
+    document.getElementById('admin-screen').classList.remove('hidden');
+    document.getElementById('admin-shop-title').innerText = owner.shop;
+    adminNavigate('dashboard');
+  } else {
+    document.getElementById('admin-login-error').classList.remove('hidden');
+  }
+}
+function closeAdminLogin(){ document.getElementById('admin-login-modal').classList.add('hidden'); document.getElementById('mode-screen').classList.remove('hidden'); }
+function adminLogout(){ document.getElementById('admin-screen').classList.add('hidden'); document.getElementById('mode-screen').classList.remove('hidden'); }
+
+function adminNavigate(section){
+  ['dashboard','orders','history','customers','juices','billing'].forEach(k=>{
+    const el = document.getElementById('nav-'+k);
+    if(el) el.classList.remove('bg-gray-100');
+  });
+  const btn = document.getElementById('nav-'+section);
+  if(btn) btn.classList.add('bg-gray-100');
+  if(section==='dashboard') renderAdminDashboard();
+  if(section==='orders') renderAdminOrders();
+  if(section==='history') renderAdminHistory();
+  if(section==='customers') renderAdminCustomers();
+  if(section==='juices') renderAdminJuices();
+  if(section==='billing') renderAdminBilling();
+}
+
+/* Admin Dashboard */
+function renderAdminDashboard(){
+  const orders = loadOrders();
+  const pending = orders.filter(o=>o.status==='pending');
+  const completed = orders.filter(o=>o.status==='completed');
+  const totalSales = completed.reduce((s,o)=>s + o.total, 0);
+  const members = loadMembers();
+  document.getElementById('admin-content').innerHTML = `
+    <h2 class="text-2xl font-bold mb-4">Dashboard</h2>
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div class="bg-white p-4 rounded shadow"><div class="text-sm text-gray-500">Pending Orders</div><div class="text-xl font-bold">${pending.length}</div></div>
+      <div class="bg-white p-4 rounded shadow"><div class="text-sm text-gray-500">Completed Orders</div><div class="text-xl font-bold">${completed.length}</div></div>
+      <div class="bg-white p-4 rounded shadow"><div class="text-sm text-gray-500">Total Sales</div><div class="text-xl font-bold">₹${totalSales.toFixed(0)}</div></div>
+      <div class="bg-white p-4 rounded shadow"><div class="text-sm text-gray-500">Customers</div><div class="text-xl font-bold">${Object.keys(members).length}</div></div>
+    </div>`;
+}
+
+/* Admin Orders */
+function renderAdminOrders(){
+  const orders = loadOrders().filter(o=>o.status==='pending');
+  const container = document.getElementById('admin-content');
+  if(!orders.length){
+    container.innerHTML = `<h2 class="text-2xl font-bold mb-4">Pending Orders</h2><div class="bg-white p-6 rounded shadow text-center text-gray-500">No pending orders available</div>`;
+    return;
+  }
+  const rows = orders.map(o => `<div class="bg-white p-4 rounded mb-3 flex justify-between">
+    <div>
+      <div class="font-semibold">JH-${String(o.orderID).padStart(4,'0')} • ${esc(o.customerName)}</div>
+      <div class="text-sm text-gray-500">${esc(o.customerPhone)} • ${new Date(o.time).toLocaleString()}</div>
+      <div class="text-sm mt-2">${o.items.map(i=>esc(i.name)+' x'+i.qty).join(', ')}</div>
+    </div>
+    <div class="text-right">
+      <div class="font-bold">₹${o.total.toFixed(0)}</div>
+      <div class="mt-2 flex gap-2 justify-end">
+        <button class="px-3 py-1 bg-green-500 text-white rounded" onclick="adminComplete(${o.orderID})">Complete</button>
+        <button class="px-3 py-1 border rounded" onclick="adminCancel(${o.orderID})">Cancel</button>
+      </div>
+    </div>
+  </div>`).join('');
+  container.innerHTML = `<h2 class="text-2xl font-bold mb-4">Pending Orders</h2>${rows}`;
+}
+
+function adminComplete(orderId){
+  if(!confirm('Mark order JH-' + String(orderId).padStart(4,'0') + ' as completed?')) return;
+  const orders = loadOrders();
+  const o = orders.find(x=>x.orderID === orderId);
+  if(!o) return alert('Order not found');
+  o.status = 'completed';
+  saveOrders(orders);
+  // award points
+  const members = loadMembers();
+  if(o.customerPhone && o.customerPhone !== 'N/A'){
+    const mem = members[o.customerPhone] || { name: o.customerName, points:0, orders:[] };
+    if(o.redeemed) mem.points = Math.max(0, (mem.points || 0) - 100) + 1;
+    else mem.points = (mem.points || 0) + 1;
+    mem.orders = mem.orders || [];
+    if(!mem.orders.includes(orderId)) mem.orders.push(orderId);
+    members[o.customerPhone] = mem;
+    saveMembers(members);
+  }
+  alert('Order completed and points updated.');
+  adminNavigate('orders');
+}
+
+function adminCancel(orderId){
+  if(!confirm('Cancel order JH-' + String(orderId).padStart(4,'0') + '?')) return;
+  let orders = loadOrders();
+  const idx = orders.findIndex(x=>x.orderID === orderId);
+  if(idx === -1) return alert('Not found');
+  const o = orders[idx];
+  const juices = loadJuices();
+  o.items.forEach(it=>{
+    const j = juices.find(x=>x.id===it.id);
+    if(j) j.stock = (j.stock || 0) + it.qty;
+  });
+  saveJuices(juices);
+  orders[idx].status = 'canceled';
+  saveOrders(orders);
+  alert('Order canceled');
+  adminNavigate('orders');
+}
+
+/* Admin History */
+function renderAdminHistory(){
+  const orders = loadOrders().slice().reverse();
+  const container = document.getElementById('admin-content');
+  if(!orders.length){
+    container.innerHTML = `<h2 class="text-2xl font-bold mb-4">Order History</h2><div class="bg-white p-6 rounded shadow text-center text-gray-500">No orders yet</div>`;
+    return;
+  }
+  const rows = orders.map(o => `<tr class="border-t">
+    <td class="p-3">JH-${String(o.orderID).padStart(4,'0')}</td>
+    <td class="p-3">${esc(o.customerName)}<br><span class="text-xs text-gray-500">+91 ${esc(o.customerPhone)}</span></td>
+    <td class="p-3">${o.items.map(i=>esc(i.name)+' x'+i.qty).join('<br>')}</td>
+    <td class="p-3">₹${o.total.toFixed(0)}</td>
+    <td class="p-3">${esc(o.paymentMode)}</td>
+    <td class="p-3">${new Date(o.time).toLocaleString()}</td>
+    <td class="p-3">${esc(o.status)}</td>
+  </tr>`).join('');
+  container.innerHTML = `<h2 class="text-2xl font-bold mb-4">Order History</h2>
+    <div class="bg-white p-4 rounded shadow overflow-auto"><table class="min-w-full"><thead class="bg-gray-50"><tr>
+    <th class="p-3 text-left">Order</th><th class="p-3 text-left">Customer</th><th class="p-3">Items</th><th class="p-3">Total</th><th class="p-3">Payment</th><th class="p-3">Date</th><th class="p-3">Status</th>
+    </tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+/* Admin Customers */
+function renderAdminCustomers(){
+  const members = loadMembers();
+  const keys = Object.keys(members);
+  const container = document.getElementById('admin-content');
+  if(!keys.length){
+    container.innerHTML = `<h2 class="text-2xl font-bold mb-4">Customers</h2><div class="bg-white p-6 rounded shadow text-center text-gray-500">No customers yet</div>`;
+    return;
+  }
+  const rows = keys.map(phone=> {
+    const m = members[phone];
+    const totalOrders = (m.orders||[]).length;
+    return `<div class="bg-white p-3 rounded mb-3 flex justify-between items-center">
+      <div><div class="font-semibold">${esc(m.name)}</div><div class="text-sm text-gray-500">+91 ${phone}</div></div>
+      <div class="text-right">
+        <div>Points: <strong>${m.points||0}</strong></div>
+        <div class="text-sm text-gray-500">Orders: ${totalOrders}</div>
+        <div class="mt-2"><button class="px-3 py-1 border rounded" onclick="viewCustomerOrders('${phone}')">View Orders</button></div>
+      </div>
+    </div>`;
+  }).join('');
+  container.innerHTML = `<h2 class="text-2xl font-bold mb-4">Customers</h2>${rows}`;
+}
+function viewCustomerOrders(phone){
+  const members = loadMembers(); const m = members[phone];
+  if(!m) return alert('No such customer');
+  const orders = loadOrders().filter(o=>o.customerPhone === phone).reverse();
+  const list = orders.map(o=>`<div class="bg-white p-3 rounded mb-2 flex justify-between">
+    <div><div class="font-semibold">JH-${String(o.orderID).padStart(4,'0')} • ${new Date(o.time).toLocaleString()}</div><div class="text-sm text-gray-500">${o.items.map(i=>esc(i.name)+' x'+i.qty).join(', ')}</div></div>
+    <div class="text-right"><div class="font-bold">₹${o.total.toFixed(0)}</div><div class="text-sm text-gray-500">${o.status}</div></div>
+  </div>`).join('') || '<div class="text-gray-500 p-4">No orders</div>';
+  document.getElementById('admin-content').innerHTML = `<button class="mb-3 px-3 py-1 border rounded" onclick="adminNavigate('customers')">← Back</button><h3 class="text-xl font-bold mb-2">${esc(m.name)} — +91 ${phone}</h3>${list}`;
+}
+
+/* Admin Juices */
+function renderAdminJuices(){
+  const juices = loadJuices();
+  const rows = juices.map(j=>`<div class="bg-white p-3 rounded mb-3 flex justify-between items-center">
+    <div><div class="font-semibold">${esc(j.name)} ${j.icon||''}</div><div class="text-sm text-gray-500">Price: ₹${j.price} • Stock: ${j.stock}</div></div>
+    <div class="flex gap-2">
+      <button class="px-3 py-1 border rounded" onclick="editJuice(${j.id})">Edit</button>
+      <button class="px-3 py-1 border rounded" onclick="deleteJuice(${j.id})">Delete</button>
+    </div>
+  </div>`).join('');
+  document.getElementById('admin-content').innerHTML = `<h2 class="text-2xl font-bold mb-4">Juices Inventory</h2>
+    <div class="mb-4"><button class="px-4 py-2 bg-green-600 text-white rounded" onclick="showAddJuice()">Add New Juice</button></div>
+    ${rows || '<div class="bg-white p-6 rounded shadow text-center text-gray-500">No juices</div>'}`;
+}
+function showAddJuice(){
+  document.getElementById('admin-content').innerHTML = `<h2 class="text-2xl font-bold mb-4">Add New Juice</h2>
+    <div class="bg-white p-4 rounded shadow max-w-xl">
+      <input id="new-name" class="w-full border p-2 rounded mb-2" placeholder="Name">
+      <input id="new-price" class="w-full border p-2 rounded mb-2" placeholder="Price">
+      <input id="new-stock" class="w-full border p-2 rounded mb-2" placeholder="Stock">
+      <input id="new-icon" class="w-full border p-2 rounded mb-2" placeholder="Icon (emoji)">
+      <div class="flex gap-2">
+        <button class="px-3 py-2 bg-green-600 text-white rounded" onclick="saveNewJuice()">Save</button>
+        <button class="px-3 py-2 border rounded" onclick="renderAdminJuices()">Cancel</button>
+      </div>
+    </div>`;
+}
+function saveNewJuice(){
+  const name = document.getElementById('new-name').value.trim();
+  const price = Number(document.getElementById('new-price').value);
+  const stock = Number(document.getElementById('new-stock').value);
+  const icon = document.getElementById('new-icon').value.trim() || '🍹';
+  if(!name || isNaN(price) || isNaN(stock)) return alert('Please fill correct values');
+  const juices = loadJuices();
+  const id = juices.length ? Math.max(...juices.map(j=>j.id)) + 1 : 1;
+  juices.push({ id, name, price, stock, icon });
+  saveJuices(juices);
+  renderAdminJuices();
+}
+function editJuice(id){
+  const juices = loadJuices(); const j = juices.find(x=>x.id===id); if(!j) return alert('Not found');
+  document.getElementById('admin-content').innerHTML = `<h2 class="text-2xl font-bold mb-4">Edit Juice</h2>
+    <div class="bg-white p-4 rounded shadow max-w-xl">
+      <input id="edit-name" class="w-full border p-2 rounded mb-2" value="${esc(j.name)}">
+      <input id="edit-price" class="w-full border p-2 rounded mb-2" value="${j.price}">
+      <input id="edit-stock" class="w-full border p-2 rounded mb-2" value="${j.stock}">
+      <input id="edit-icon" class="w-full border p-2 rounded mb-2" value="${esc(j.icon||'')}">
+      <div class="flex gap-2">
+        <button class="px-3 py-2 bg-green-600 text-white rounded" onclick="saveEditJuice(${j.id})">Save</button>
+        <button class="px-3 py-2 border rounded" onclick="renderAdminJuices()">Cancel</button>
+      </div>
+    </div>`;
+}
+function saveEditJuice(id){
+  const name = document.getElementById('edit-name').value.trim();
+  const price = Number(document.getElementById('edit-price').value);
+  const stock = Number(document.getElementById('edit-stock').value);
+  const icon = document.getElementById('edit-icon').value.trim() || '🍹';
+  if(!name || isNaN(price) || isNaN(stock)) return alert('Invalid');
+  const juices = loadJuices(); const idx = juices.findIndex(x=>x.id===id);
+  juices[idx] = { id, name, price, stock, icon }; saveJuices(juices); renderAdminJuices();
+}
+function deleteJuice(id){ if(!confirm('Delete this juice?')) return; let juices = loadJuices(); juices = juices.filter(x=>x.id!==id); saveJuices(juices); renderAdminJuices(); }
+
+/* -----------------------
+   Admin Billing (start popup & UI)
+   ----------------------- */
+function renderAdminBilling(){
+  // Start with popup to enter customer details
+  showAdminBillingStart();
+}
+
+/* Show popup modal - admin billing start */
+function showAdminBillingStart(){
+  // if overlay exists, remove first
+  const existing = document.getElementById('admin-billing-start-overlay');
+  if(existing) existing.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'admin-billing-start-overlay';
+  overlay.className = 'fixed inset-0 modal-bg center-modal p-4';
+  overlay.innerHTML = `
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+      <h3 class="text-2xl font-bold mb-2" style="color:var(--primary)">Billing — Enter customer</h3>
+      <p class="text-gray-600 mb-4">Enter customer name & phone (for points & history).</p>
+      <input id="admin-bill-name" class="w-full border rounded p-3 mb-3" placeholder="Customer name">
+      <input id="admin-bill-phone" class="w-full border rounded p-3 mb-3" placeholder="10-digit mobile (optional)">
+      <div class="flex gap-3">
+        <button id="admin-start-billing-btn" class="flex-1 bg-red-500 text-white p-3 rounded">Start Billing</button>
+        <button class="flex-1 border p-3 rounded" id="admin-cancel-billing-btn">Cancel</button>
+      </div>
+      <p id="admin-billing-error" class="text-red-500 text-sm mt-3 hidden">Please enter valid name & optional 10-digit phone.</p>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  // Hook events
+  document.getElementById('admin-start-billing-btn').onclick = startAdminBilling;
+  document.getElementById('admin-cancel-billing-btn').onclick = function(){ overlay.remove(); adminNavigate('billing'); };
+}
+
+/* startAdminBilling function (works and was requested) */
+function startAdminBilling(){
+  const name = document.getElementById('admin-bill-name').value.trim();
+  const phoneRaw = document.getElementById('admin-bill-phone').value.replace(/\D/g,'');
+  const phone = phoneRaw.length === 10 ? phoneRaw : null;
+  if(!name){
+    document.getElementById('admin-billing-error').classList.remove('hidden');
+    return;
+  }
+  // create ADMIN_BILL state on window
+  window.ADMIN_BILL = {
+    name,
+    phone,
+    points: 0,
+    cart: [],
+    orderType: 'Dine-in',
+    redeem: false
+  };
+  if(phone){
+    const members = loadMembers();
+    if(!members[phone]) members[phone] = { name, points: 0, orders: [] };
+    window.ADMIN_BILL.points = members[phone].points || 0;
+    saveMembers(members);
+  }
+  // remove overlay
+  const overlay = document.getElementById('admin-billing-start-overlay');
+  if(overlay) overlay.remove();
+  // render billing UI inside admin-content (same style as customer)
+  renderAdminBillingUI();
+}
+
+/* Render Admin Billing UI (cards + order panel) */
+function renderAdminBillingUI(){
+  const juices = loadJuices();
+  const productCards = juices.map(j=> {
+    const inCart = (window.ADMIN_BILL.cart || []).find(c=>c.id===j.id);
+    const out = j.stock <= 0;
+    return `<div class="juice-card bg-white rounded-2xl p-5 shadow">
+      <div class="flex items-start gap-4">
+        <div class="text-4xl">${j.icon||'🍹'}</div>
+        <div class="flex-1">
+          <div class="font-bold text-lg">${esc(j.name)}</div>
+          <div class="text-red-500 font-extrabold text-xl">₹${j.price}</div>
+          <div class="text-sm text-gray-500">Stock: ${j.stock}</div>
+        </div>
+      </div>
+      <div class="mt-4">
+        ${out? `<button class="w-full p-2 bg-gray-200 rounded">Out of stock</button>` : inCart ? `
+          <div class="flex items-center gap-3">
+            <button class="stepper-btn rounded bg-red-500 text-white" onclick="adminBillingChangeQty(${j.id}, -1)">-</button>
+            <div class="font-bold">${inCart.qty}</div>
+            <button class="stepper-btn rounded bg-red-500 text-white" onclick="adminBillingChangeQty(${j.id}, 1)">+</button>
+          </div>` : `<button class="w-full p-2 bg-red-500 text-white rounded" onclick="adminBillingAddToCart(${j.id})">Add</button>`}
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('admin-content').innerHTML = `
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+      <div class="md:col-span-8 lg:col-span-9">
+        <div class="bg-white p-4 rounded-2xl shadow mb-4 flex justify-between items-center">
+          <div>
+            <div class="font-semibold">${esc(window.ADMIN_BILL.name)}</div>
+            <div class="text-sm text-gray-500">${window.ADMIN_BILL.phone ? '+91 ' + window.ADMIN_BILL.phone : 'Walk-in (no phone)'}</div>
+          </div>
+          <div class="text-right">
+            <div class="text-sm text-gray-500">Points</div>
+            <div class="font-bold">${window.ADMIN_BILL.points || 0}</div>
+          </div>
+        </div>
+
+        <div class="mb-4 flex gap-3">
+          <div class="bg-white p-4 rounded-2xl shadow flex items-center gap-4">
+            <div class="font-semibold">Order Type:</div>
+            <div class="flex items-center gap-2">
+              <button id="admin-dine-btn" onclick="adminBillingSetOrderType('Dine-in')" class="px-4 py-2 rounded-lg border bg-white">Dine-in</button>
+              <button id="admin-parcel-btn" onclick="adminBillingSetOrderType('Parcel')" class="px-4 py-2 rounded-lg border bg-white">Parcel (+₹10)</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">${productCards}</div>
+      </div>
+
+      <aside class="md:col-span-4 lg:col-span-3">
+        <div class="bg-white rounded-2xl shadow p-4 sticky top-6">
+          <h3 class="font-bold text-lg">Order</h3>
+          <div id="admin-bill-cart" class="mt-3 space-y-3"></div>
+          <div id="admin-bill-summary" class="mt-4 text-sm"></div>
+          <div class="mt-4 space-y-2">
+            <button class="w-full bg-red-500 text-white p-3 rounded-lg" onclick="adminBillingOpenCheckout()">Checkout</button>
+            <button class="w-full border p-2 rounded" onclick="adminNavigate('billing')">Cancel Billing</button>
+          </div>
+        </div>
+      </aside>
+    </div>
+  `;
+  adminBillingSetOrderType(window.ADMIN_BILL.orderType || 'Dine-in');
+  adminBillingRenderCart();
+}
+
+/* Admin billing cart ops */
+function adminBillingAddToCart(id){
+  const juices = loadJuices();
+  const j = juices.find(x=>x.id===id); if(!j || j.stock<=0) return alert('Out of stock');
+  window.ADMIN_BILL.cart = window.ADMIN_BILL.cart || [];
+  const existing = window.ADMIN_BILL.cart.find(c=>c.id===id);
+  if(existing) existing.qty++;
+  else window.ADMIN_BILL.cart.push({ id: j.id, name: j.name, price: j.price, qty:1 });
+  adminBillingRenderCart();
+  renderAdminBillingUI();
+}
+function adminBillingChangeQty(id, delta){
+  const item = (window.ADMIN_BILL.cart||[]).find(c=>c.id===id); if(!item) return;
+  item.qty += delta; if(item.qty<=0) window.ADMIN_BILL.cart = window.ADMIN_BILL.cart.filter(c=>c.id!==id);
+  adminBillingRenderCart(); renderAdminBillingUI();
+}
+function adminBillingRenderCart(){
+  const cont = document.getElementById('admin-bill-cart'); if(!cont) return;
+  const items = window.ADMIN_BILL.cart || [];
+  if(!items.length){ cont.innerHTML = '<div class="text-gray-500 py-6 text-center">Cart is empty</div>'; document.getElementById('admin-bill-summary').innerHTML=''; return; }
+  cont.innerHTML = items.map(it => `<div class="flex justify-between items-center"><div><div class="font-semibold">${esc(it.name)}</div><div class="text-sm text-gray-500">₹${it.price} x ${it.qty}</div></div><div class="font-bold">₹${(it.price*it.qty).toFixed(0)}</div></div>`).join('<hr class="my-2">');
+  const subtotal = items.reduce((s,i)=>s + i.price*i.qty, 0);
+  const parcel = window.ADMIN_BILL.orderType === 'Parcel' ? 10 : 0;
+  const discount = window.ADMIN_BILL.redeem ? 50 : 0;
+  const total = Math.max(0, subtotal + parcel - discount);
+  document.getElementById('admin-bill-summary').innerHTML = `<div class="text-sm">Subtotal: ₹${subtotal.toFixed(0)}</div>
+    <div class="${parcel? 'text-sm':'hidden'}">Parcel: +₹10</div>
+    <div class="${discount? 'text-sm text-green-600':'hidden'}">Redeem applied: -₹50</div>
+    <div class="mt-2 font-bold text-lg text-red-500">Total: ₹${total.toFixed(0)}</div>`;
+}
+function adminBillingSetOrderType(type){
+  window.ADMIN_BILL.orderType = type;
+  const dineBtn = document.getElementById('admin-dine-btn');
+  const parcelBtn = document.getElementById('admin-parcel-btn');
+  if(dineBtn && parcelBtn){
+    dineBtn.classList.toggle('bg-red-500', type==='Dine-in'); dineBtn.classList.toggle('text-white', type==='Dine-in');
+    parcelBtn.classList.toggle('bg-red-500', type==='Parcel'); parcelBtn.classList.toggle('text-white', type==='Parcel');
+  }
+  adminBillingRenderCart();
+}
+
+/* Admin checkout (uses same modal but admin context) */
+function adminBillingOpenCheckout(){
+  const itemsDiv = document.getElementById('checkout-items');
+  itemsDiv.innerHTML = (window.ADMIN_BILL.cart || []).map(i=>`<div class="flex justify-between mb-2"><div>${esc(i.name)} x ${i.qty}</div><div>₹${(i.price*i.qty).toFixed(0)}</div></div>`).join('');
+  const radios = document.getElementsByName('co-order-type'); radios.forEach(r=> r.checked = (r.value === window.ADMIN_BILL.orderType));
+  document.getElementById('checkout-redeem').classList.toggle('hidden', ! (window.ADMIN_BILL.points >= 100));
+  document.getElementById('checkout-redeem-checkbox').checked = window.ADMIN_BILL.redeem;
+  // change redeem handler to admin flow for this checkout
+  document.getElementById('checkout-redeem-checkbox').onchange = function(e){
+    if(e.target.checked){
+      if((window.ADMIN_BILL.points || 0) < 100){ alert('Customer does not have 100 points to redeem.'); e.target.checked = false; window.ADMIN_BILL.redeem = false; }
+      else window.ADMIN_BILL.redeem = true;
+    } else { window.ADMIN_BILL.redeem = false; }
+    updateCheckoutSummaryAdmin();
+    adminBillingRenderCart();
+  };
+  updateCheckoutSummaryAdmin();
+  document.getElementById('checkout-pay-btn').onclick = function(){ adminBillingProcess(); };
+  document.getElementById('checkout-modal').classList.remove('hidden');
+}
+function updateCheckoutSummaryAdmin(){
+  const subtotal = (window.ADMIN_BILL.cart || []).reduce((s,i)=>s + i.price*i.qty, 0);
+  const parcel = window.ADMIN_BILL.orderType === 'Parcel' ? 10 : 0;
+  const discount = window.ADMIN_BILL.redeem ? 50 : 0;
+  const total = Math.max(0, subtotal + parcel - discount);
+  document.getElementById('checkout-summary').innerHTML = `<div class="text-sm">Subtotal: ₹${subtotal.toFixed(0)}</div>
+    <div class="${parcel? 'text-sm':'hidden'}">Parcel: +₹10</div>
+    <div class="${discount? 'text-sm text-green-600':'hidden'}">Discount: -₹50</div>
+    <div class="mt-2 font-bold text-lg text-red-500">Payable: ₹${total.toFixed(0)}</div>`;
+}
+function checkoutSetOrderType(type){
+  if(MODE === 'admin' && window.ADMIN_BILL) {
+    window.ADMIN_BILL.orderType = type; updateCheckoutSummaryAdmin(); adminBillingRenderCart();
+  } else {
+    CUSTOMER.orderType = type; updateCheckoutSummary(); renderCart();
+  }
+}
+function closeCheckout(){ document.getElementById('checkout-modal').classList.add('hidden'); }
+
+/* Admin finalize billing (walk-in) */
+function adminBillingProcess(){
+  const items = window.ADMIN_BILL.cart || [];
+  if(!items.length) return alert('No items');
+  const subtotal = items.reduce((s,i)=>s + i.price*i.qty, 0);
+  const parcel = window.ADMIN_BILL.orderType === 'Parcel' ? 10 : 0;
+  const discount = window.ADMIN_BILL.redeem ? 50 : 0;
+  const total = Math.max(0, subtotal + parcel - discount);
+  const id = nextOrderID();
+  const order = {
+    orderID: id,
+    items: items.map(i=>({ id:i.id, name:i.name, qty:i.qty, price:i.price })),
+    subtotal, parcel, discount, total,
+    orderType: window.ADMIN_BILL.orderType,
+    redeemed: window.ADMIN_BILL.redeem,
+    paymentMode: 'Cash (Admin)',
+    customerName: window.ADMIN_BILL.name,
+    customerPhone: window.ADMIN_BILL.phone || 'N/A',
+    status: 'completed',
+    time: new Date().toISOString()
+  };
+  const orders = loadOrders(); orders.push(order); saveOrders(orders);
+  // update stock
+  const juices = loadJuices();
+  order.items.forEach(it=>{
+    const j = juices.find(x=>x.id===it.id); if(j) j.stock = Math.max(0, j.stock - it.qty);
+  });
+  saveJuices(juices);
+  // update member points if phone present
+  if(window.ADMIN_BILL.phone){
+    const members = loadMembers();
+    const mem = members[window.ADMIN_BILL.phone] || { name: window.ADMIN_BILL.name, points:0, orders:[] };
+    if(order.redeemed) mem.points = Math.max(0, (mem.points || 0) - 100) + 1;
+    else mem.points = (mem.points || 0) + 1;
+    mem.orders = mem.orders || []; mem.orders.push(id);
+    members[window.ADMIN_BILL.phone] = mem; saveMembers(members);
+  }
+  const msg = formatBillText(order, true);
+  if(order.customerPhone && order.customerPhone !== 'N/A') window.open(`https://wa.me/91${order.customerPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+  alert('Bill generated JH-' + String(id).padStart(4,'0'));
+  window.ADMIN_BILL = null;
+  adminNavigate('history');
+}
+
+/* -----------------------
+   Utilities & init
+   ----------------------- */
+function loadJuices(){ return JSON.parse(localStorage.getItem(LS.JUICES) || '[]'); }
+function saveJuices(arr){ localStorage.setItem(LS.JUICES, JSON.stringify(arr)); }
+function loadMembers(){ return JSON.parse(localStorage.getItem(LS.MEMBERS) || '{}'); }
+function saveMembers(map){ localStorage.setItem(LS.MEMBERS, JSON.stringify(map)); }
+function loadOrders(){ return JSON.parse(localStorage.getItem(LS.ORDERS) || '[]'); }
+function saveOrders(arr){ localStorage.setItem(LS.ORDERS, JSON.stringify(arr)); }
+function getOwner(){ return JSON.parse(localStorage.getItem(LS.OWNER) || '{}'); }
+
+document.addEventListener('DOMContentLoaded', ()=> {
+  // ready
+});
 </script>
 </body>
 </html>
