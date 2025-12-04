@@ -7,7 +7,6 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <!-- jsPDF for PDF generation -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     :root{--primary-color:#F87171;--secondary-color:#6EE7B7}
     body{font-family:'Inter',sans-serif;background:#f7f7f7}
@@ -410,10 +409,6 @@
     members[state.mobileNumber] = m;
     saveMembers(members);
     state.userPoints = m.points;
-
-    // 3. Generate PDF bill and download
-    const pdfBlob = await generatePDFandDownload();
-
     // 4. Generate WhatsApp message (text preview) and open
     const billText = generateWhatsAppBill();
     const encoded = encodeURIComponent(billText);
@@ -429,68 +424,6 @@
     updateTotals();
     renderProductList();
     state.redeemed = false;
-  }
-
-  // --- PDF Generation using jsPDF ---
-  async function generatePDFandDownload() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-
-    const left = 40;
-    let y = 60;
-    doc.setFontSize(20);
-    doc.setTextColor(40);
-    doc.text('🍹 Juice Shop Bill', left, y);
-    y += 30;
-    doc.setFontSize(12);
-    doc.text(`Name: ${state.userName}`, left, y); doc.text(`Phone: +91 ${state.mobileNumber}`, 350, y);
-    y += 20;
-    doc.text(`Order Type: ${state.orderType}`, left, y); doc.text(`Payment Mode: ${state.paymentMethod}`, 350, y);
-    y += 25;
-    doc.text(`Date: ${new Date().toLocaleString()}`, left, y);
-    y += 20;
-    doc.line(left, y, 560, y);
-    y += 15;
-
-    // Table header
-    doc.setFontSize(11);
-    doc.text('Item', left, y); doc.text('Qty', 330, y); doc.text('Price', 420, y); doc.text('Total', 500, y);
-    y += 8;
-    doc.line(left, y, 560, y);
-    y += 15;
-
-    state.cart.forEach(item => {
-      doc.text(item.name, left, y);
-      doc.text(String(item.qty), 330, y);
-      doc.text(`₹${item.price}`, 420, y);
-      doc.text(`₹${(item.price*item.qty).toFixed(0)}`, 500, y);
-      y += 18;
-    });
-
-    y += 6;
-    doc.line(left, y, 560, y);
-    y += 18;
-    doc.text(`Subtotal: ₹${state.subtotal.toFixed(0)}`, 420, y);
-    y += 18;
-    const taxAmount = state.subtotal * APP_TAX_RATE;
-    doc.text(`Tax (5%): ₹${taxAmount.toFixed(0)}`, 420, y);
-    y += 18;
-    if(state.redeemed) {
-      doc.text(`Redeem Discount: -₹50`, 420, y); y += 18;
-    }
-    doc.setFontSize(14);
-    doc.setTextColor(220,20,60);
-    doc.text(`Grand Total: ₹${state.grandTotal.toFixed(0)}`, 420, y);
-    y += 30;
-    doc.setFontSize(11);
-    doc.setTextColor(80);
-    doc.text('Thank you! Visit again. 🍹', left, y);
-
-    // Download
-    const fileName = `juice_bill_${state.mobileNumber}_${Date.now()}.pdf`;
-    doc.save(fileName);
-    // We cannot attach PDF to WhatsApp via wa.me; user can send it manually if needed.
-    return null;
   }
 
   // --- Bill message generation (text) ---
